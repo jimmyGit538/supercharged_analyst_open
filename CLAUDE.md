@@ -56,7 +56,7 @@ time_log/                               # Time tracking scripts and logs
 **dbt models**
 - Staging models: `02_dbt/models/1_staging_warehouses/stg_<source>__<entity>.sql`, `02_dbt/models/3_staging_marts/stg_<source>__<entity>.sql`  — materialised as views
 - Warehouse models: `02_dbt/models/2_warehouses/<source>_<name>.sql` — materialised as tables
-- Mart models: `02_dbt/models/4_marts/fct_<name>.sql` or `dim_<name>.sql` `02_dbt/models/2_warehouses/fct_<name>.sql` or `dim_<name>.sql` — materialised as tables
+- Mart models: `02_dbt/models/4_marts/fct_<name>.sql` or `dim_<name>.sql`
 
 - All models must have column-level documentation and dbt tests
 
