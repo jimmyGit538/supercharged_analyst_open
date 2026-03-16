@@ -19,7 +19,6 @@ GCP-native modern data stack for a small analytics team. The goal is to extract,
   tests/                                # dbt tests
 infra/                                  # GCP bootstrap scripts, gcloud / Terraform configs
 docs/                                   # Strategy documents and reference material
-time_log/                               # Time tracking scripts and logs
 .github/workflows/                      # CI only: lint + docker build+push (NOT pipeline scheduling)
 ```
 
