@@ -9,12 +9,18 @@ GCP-native modern data stack for a small analytics team. The goal is to extract,
 ## Directory Structure
 
 ```
-01_extraction/       # One subdirectory per data source (main.py, requirements.txt, Dockerfile)
-02_dbt/              # dbt Core project (staging views → mart tables in BigQuery)
-03_warehouses/       # Warehouse configuration and connection references
-04_infra/            # GCP bootstrap scripts, gcloud / Terraform configs
-docs/                # Strategy documents and reference material
-.github/workflows/   # CI only: lint + docker build+push (NOT pipeline scheduling)
+01_extraction/                          # One subdirectory per data source (main.py, requirements.txt, Dockerfile)
+02_dbt/                                 # dbt Core project (staging views → mart tables in BigQuery)
+  models/
+    1_staging_warehouses/               # Staging views from raw warehouse sources
+    2_warehouses/                       # Cleaned warehouse tables
+    3_staging_marts/                    # Staging views feeding mart layer
+    4_marts/                            # Fact and dimension mart tables
+  tests/                                # dbt tests
+infra/                                  # GCP bootstrap scripts, gcloud / Terraform configs
+docs/                                   # Strategy documents and reference material
+time_log/                               # Time tracking scripts and logs
+.github/workflows/                      # CI only: lint + docker build+push (NOT pipeline scheduling)
 ```
 
 ## Stack
