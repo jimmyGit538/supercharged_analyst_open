@@ -1,0 +1,20 @@
+supercharged_analyst:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth
+      project: YOUR_GCP_PROJECT_ID
+      dataset: dbt_dev
+      threads: 4
+      timeout_seconds: 300
+      location: US
+    prod:
+      type: bigquery
+      method: service-account-impersonation
+      project: YOUR_GCP_PROJECT_ID
+      dataset: dbt_prod
+      impersonate_service_account: YOUR_DBT_SERVICE_ACCOUNT@YOUR_GCP_PROJECT_ID.iam.gserviceaccount.com
+      threads: 4
+      timeout_seconds: 300
+      location: US
