@@ -18,6 +18,13 @@ GCP-native modern data stack for a small analytics team. The goal is to extract,
     4_marts/                            # Fact and dimension mart tables
   tests/                                # dbt tests
 infra/                                  # GCP bootstrap scripts, gcloud / Terraform configs
+  agent_registry/                       # BigQuery-backed registry for agent and skill definitions
+    schema.sql                          # DDL: agents, skills, agent_snapshots, skill_snapshots tables
+    loader.py                           # Runtime loader — pulls live definitions from BigQuery at startup
+    snapshot.py                         # Snapshot engine — append-only audit log and diff utility
+    manage.py                           # CLI: upsert, snapshot, diff, list commands
+    example_agent.py                    # Reference implementation for bootstrapping an agent from the registry
+    requirements.txt                    # Dependencies: google-cloud-bigquery, anthropic, python-dotenv
 docs/                                   # Strategy documents and reference material
 .github/workflows/                      # CI only: lint + docker build+push (NOT pipeline scheduling)
 ```
@@ -64,6 +71,26 @@ docs/                                   # Strategy documents and reference mater
 - `staging` — dbt staging views
 - `warehouses` - dbt warehouse tables (cleaned extraction)
 - `marts` — dbt mart tables (source for Looker Studio)
+
+## Agent Registry
+
+The `infra/agent_registry/` package is the **central nervous system for all AI agents in this project**. BigQuery is the single source of truth for every agent and skill definition — no agent should hardcode its own system prompt or load instructions from a local file at runtime.
+
+**Why it exists:**
+- Agents and skills evolve frequently. Without a registry, definitions drift across files, branches, and conversations with no audit trail.
+- BigQuery gives us versioned, queryable, durable storage with the same cost controls and access patterns as the rest of the stack.
+- Snapshots enable A/B testing of agent prompts and rollback to any prior version without a code deploy.
+
+**How it works:**
+1. `schema.sql` provisions four BigQuery tables: `agents`, `skills`, `agent_snapshots`, `skill_snapshots`.
+2. `manage.py` is the CLI for day-to-day operations — upsert a definition from a markdown file, snapshot the current state, diff two versions, or list history.
+3. `loader.py` is imported by every agent at startup to pull its live definition from BigQuery. Cached loading is available for high-frequency agents.
+4. `snapshot.py` writes append-only audit records on every change and exposes unified diffs between any two snapshots.
+
+**Rules:**
+- Every agent and skill definition must be registered here before it is used in production.
+- Changes to definitions must go through `manage.py upsert` (not direct BigQuery edits) so that snapshots are captured automatically.
+- Use `performance_tag` in snapshots when A/B testing prompt variants so results can be queried and compared.
 
 ## Hard Rules
 
