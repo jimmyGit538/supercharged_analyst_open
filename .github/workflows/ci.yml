@@ -49,6 +49,7 @@ jobs:
 
       - name: Build and push extraction images
         run: |
+          shopt -s nullglob
           for dir in 01_extraction/*/; do
             source=$(basename "$dir")
             docker build \
