@@ -1,55 +1,40 @@
--- ── agents ────────────────────────────────────────────────────────────────────
--- Live definitions for Claude agents.
--- Edit the `content` field here to update an agent immediately.
-CREATE TABLE IF NOT EXISTS `{PROJECT}.{DATASET}.agents` (
-    name        STRING  NOT NULL,   -- unique identifier, e.g. "extraction-agent"
-    heading     STRING  NOT NULL,   -- human-readable title shown in docs
-    content     STRING  NOT NULL,   -- full system prompt / instructions
-    version     INT64   NOT NULL DEFAULT 1,
-    is_active   BOOL    NOT NULL DEFAULT TRUE,
-    updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(),
-    updated_by  STRING                                          -- optional: who changed it
-)
-OPTIONS (description = "Live Claude agent definitions. Single source of truth.");
-
-
--- ── skills ────────────────────────────────────────────────────────────────────
--- Live definitions for Claude skills (reusable sub-instructions).
-CREATE TABLE IF NOT EXISTS `{PROJECT}.{DATASET}.skills` (
-    name        STRING  NOT NULL,
-    heading     STRING  NOT NULL,
-    content     STRING  NOT NULL,
-    version     INT64   NOT NULL DEFAULT 1,
-    is_active   BOOL    NOT NULL DEFAULT TRUE,
-    updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(),
-    updated_by  STRING
-)
-OPTIONS (description = "Live Claude skill definitions. Single source of truth.");
-
-
 -- ── agent_snapshots ───────────────────────────────────────────────────────────
 -- Append-only history of every content change to agents.
--- Never UPDATE or DELETE rows here — only INSERT.
+-- Source of truth is .claude/agents/<name>.md — edit there, not here.
+-- Never UPDATE or DELETE rows — only INSERT.
 CREATE TABLE IF NOT EXISTS `{PROJECT}.{DATASET}.agent_snapshots` (
-    name            STRING    NOT NULL,
-    heading         STRING    NOT NULL,
-    content         STRING    NOT NULL,
+    name            STRING    NOT NULL,  -- filename stem, e.g. "data-extractor"
+    description     STRING,             -- from frontmatter: what this agent does
+    tools           ARRAY<STRING>,      -- from frontmatter: allowed tools
+    skills          ARRAY<STRING>,      -- from frontmatter: composed skills
+    sections        ARRAY<STRUCT<      -- parsed markdown sections
+                        heading STRING, -- e.g. "## Instructions"
+                        body    STRING  -- section body text
+                    >>,
+    content         STRING    NOT NULL, -- full raw file content (used for diffing)
     version         INT64     NOT NULL,
-    snapshotted_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(),
-    notes           STRING,             -- optional: "improved pagination instructions"
+    snapshotted_at  TIMESTAMP NOT NULL,
+    notes           STRING,             -- optional: "improved pagination logic"
     performance_tag STRING              -- optional: tag for A/B comparison
 )
-OPTIONS (description = "Append-only history of agent content changes for versioning and A/B analysis.");
+OPTIONS (description = "Append-only history of agent content changes. Source of truth is .claude/agents/<name>.md.");
 
 
 -- ── skill_snapshots ───────────────────────────────────────────────────────────
+-- Append-only history of every content change to skills.
+-- Source of truth is .claude/skills/<name>/SKILL.md — edit there, not here.
+-- Never UPDATE or DELETE rows — only INSERT.
 CREATE TABLE IF NOT EXISTS `{PROJECT}.{DATASET}.skill_snapshots` (
-    name            STRING    NOT NULL,
-    heading         STRING    NOT NULL,
-    content         STRING    NOT NULL,
+    name            STRING    NOT NULL,  -- directory name, e.g. "python-data-extraction"
+    description     STRING,             -- from frontmatter: when to invoke this skill
+    sections        ARRAY<STRUCT<      -- parsed markdown sections
+                        heading STRING,
+                        body    STRING
+                    >>,
+    content         STRING    NOT NULL, -- full raw file content (used for diffing)
     version         INT64     NOT NULL,
-    snapshotted_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(),
+    snapshotted_at  TIMESTAMP NOT NULL,
     notes           STRING,
     performance_tag STRING
 )
-OPTIONS (description = "Append-only history of skill content changes.");
+OPTIONS (description = "Append-only history of skill content changes. Source of truth is .claude/skills/<name>/SKILL.md.");

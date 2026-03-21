@@ -1,3 +1,4 @@
 python-dotenv
 google-cloud-bigquery
 anthropic
+pyyaml

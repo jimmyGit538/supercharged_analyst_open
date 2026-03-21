@@ -1,19 +1,18 @@
 """
 agent_registry/manage.py
 
-CLI for managing agents and skills in BigQuery.
+CLI for managing agent and skill snapshots in BigQuery.
 
 Commands:
-    upsert   -- create or update an agent/skill from a .md file (one-time migration)
-    snapshot -- save a snapshot of the current live definition
-    diff     -- show unified diff between last two snapshots
-    list     -- list snapshot history for a name
+    sync     -- scan all .claude/agents/ and .claude/skills/ files and snapshot any that changed
+    diff     -- show unified diff between last two snapshots for a given name
+    list     -- list snapshot history for a given name
 
 Usage:
-    python -m agent_registry.manage upsert   --type agent --name extraction-agent --file agent.md
-    python -m agent_registry.manage snapshot --type agent --name extraction-agent --notes "v2 improved"
-    python -m agent_registry.manage diff     --type agent --name extraction-agent
-    python -m agent_registry.manage list     --type agent --name extraction-agent
+    python -m agent_registry.manage sync
+    python -m agent_registry.manage diff  --type agent --name data-extractor
+    python -m agent_registry.manage list  --type agent --name data-extractor
+    python -m agent_registry.manage list  --type skill --name python-data-extraction --limit 10
 """
 
 import argparse
@@ -21,8 +20,8 @@ import os
 import sys
 import logging
 from pathlib import Path
+
 from dotenv import load_dotenv
-from google.cloud import bigquery
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -30,102 +29,57 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 _BQ_PROJECT = os.getenv("BQ_PROJECT")
 _BQ_DATASET = os.getenv("BQ_DATASET")
 
-
-def _client():
-    return bigquery.Client(project=_BQ_PROJECT)
-
-
-def _table_for(type_: str) -> tuple[str, str]:
-    """Return (live_table, snapshot_table) for agent or skill."""
-    if type_ == "agent":
-        return "agents", "agent_snapshots"
-    elif type_ == "skill":
-        return "skills", "skill_snapshots"
-    else:
-        raise ValueError(f"Unknown type '{type_}' — must be 'agent' or 'skill'")
+# Project root: infra/agent_registry/ -> infra/ -> project root
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_CLAUDE_DIR = _PROJECT_ROOT / ".claude"
 
 
 # ── Commands ───────────────────────────────────────────────────────────────────
 
-def cmd_upsert(args):
+def cmd_sync(args):
     """
-    Create or update a definition in BigQuery from a file.
-    Heading defaults to the first ## line found, or the name if not present.
-    Also writes an initial snapshot.
+    Scan all .claude/agents/*.md and .claude/skills/*/SKILL.md files.
+    For each, load it via the registry (which auto-snapshots if content changed).
     """
-    live_table, _ = _table_for(args.type)
-    content = Path(args.file).read_text(encoding="utf-8")
+    from agent_registry.loader import load_agent, load_skill
 
-    # Extract heading from first ## line if present
-    heading = args.name
-    for line in content.splitlines():
-        if line.startswith("## "):
-            heading = line[3:].strip()
-            break
+    agents_dir = _CLAUDE_DIR / "agents"
+    skills_dir = _CLAUDE_DIR / "skills"
 
-    client = _client()
+    agent_files = sorted(agents_dir.glob("*.md")) if agents_dir.exists() else []
+    skill_files = sorted(skills_dir.glob("*/SKILL.md")) if skills_dir.exists() else []
 
-    # Check if it already exists to determine new version number
-    check_sql = f"""
-        SELECT version FROM `{_BQ_PROJECT}.{_BQ_DATASET}.{live_table}`
-        WHERE name = @name LIMIT 1
-    """
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[bigquery.ScalarQueryParameter("name", "STRING", args.name)]
-    )
-    existing = list(client.query(check_sql, job_config=job_config).result())
-    new_version = (existing[0]["version"] + 1) if existing else 1
+    if not agent_files and not skill_files:
+        print(f"No agent or skill files found under {_CLAUDE_DIR}")
+        return
 
-    # BigQuery has no native UPSERT via DML from the Python client for streaming,
-    # so we use a MERGE statement.
-    merge_sql = f"""
-        MERGE `{_BQ_PROJECT}.{_BQ_DATASET}.{live_table}` T
-        USING (SELECT @name AS name, @heading AS heading,
-                      @content AS content, @version AS version) S
-        ON T.name = S.name
-        WHEN MATCHED THEN
-            UPDATE SET
-                heading    = S.heading,
-                content    = S.content,
-                version    = S.version,
-                updated_at = CURRENT_TIMESTAMP()
-        WHEN NOT MATCHED THEN
-            INSERT (name, heading, content, version, is_active, updated_at)
-            VALUES (S.name, S.heading, S.content, S.version, TRUE, CURRENT_TIMESTAMP())
-    """
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[
-            bigquery.ScalarQueryParameter("name",    "STRING", args.name),
-            bigquery.ScalarQueryParameter("heading", "STRING", heading),
-            bigquery.ScalarQueryParameter("content", "STRING", content),
-            bigquery.ScalarQueryParameter("version", "INT64",  new_version),
-        ]
-    )
-    client.query(merge_sql, job_config=job_config).result()
-    print(f"[upsert] {args.type} '{args.name}' v{new_version} → {live_table}")
+    for path in agent_files:
+        name = path.stem
+        try:
+            load_agent(name)
+        except Exception as e:
+            print(f"[sync] ERROR loading agent '{name}': {e}", file=sys.stderr)
 
-    # Auto-snapshot after every upsert
-    from agent_registry.snapshot import snapshot_agent, snapshot_skill
-    fn = snapshot_agent if args.type == "agent" else snapshot_skill
-    fn(args.name, notes=args.notes or f"upserted from {args.file}")
+    for path in skill_files:
+        name = path.parent.name
+        try:
+            load_skill(name)
+        except Exception as e:
+            print(f"[sync] ERROR loading skill '{name}': {e}", file=sys.stderr)
 
-
-def cmd_snapshot(args):
-    from agent_registry.snapshot import snapshot_agent, snapshot_skill
-    fn = snapshot_agent if args.type == "agent" else snapshot_skill
-    fn(args.name, notes=args.notes or "", performance_tag=args.tag or "")
+    print(f"[sync] Done — {len(agent_files)} agent(s), {len(skill_files)} skill(s) checked.")
 
 
 def cmd_diff(args):
-    from agent_registry.snapshot import diff_agent, diff_skill
-    fn = diff_agent if args.type == "agent" else diff_skill
-    print(fn(args.name))
+    from agent_registry.snapshot import diff
+    table = "agent_snapshots" if args.type == "agent" else "skill_snapshots"
+    print(diff(name=args.name, table=table))
 
 
 def cmd_list(args):
     from agent_registry.snapshot import list_snapshots
-    _, snap_table = _table_for(args.type)
-    rows = list_snapshots(args.name, table=snap_table, limit=args.limit)
+    table = "agent_snapshots" if args.type == "agent" else "skill_snapshots"
+    rows = list_snapshots(name=args.name, table=table, limit=args.limit)
     if not rows:
         print(f"No snapshots found for {args.type} '{args.name}'")
         return
@@ -148,22 +102,11 @@ def main():
         print("ERROR: BQ_PROJECT and BQ_DATASET must be set in .env", file=sys.stderr)
         sys.exit(1)
 
-    parser = argparse.ArgumentParser(description="Manage Claude agents and skills in BigQuery")
+    parser = argparse.ArgumentParser(description="Manage Claude agent and skill snapshots in BigQuery")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    # upsert
-    p = sub.add_parser("upsert", help="Create or update a definition from a file")
-    p.add_argument("--type",  required=True, choices=["agent", "skill"])
-    p.add_argument("--name",  required=True)
-    p.add_argument("--file",  required=True, help="Path to .md or .txt file")
-    p.add_argument("--notes", default="")
-
-    # snapshot
-    p = sub.add_parser("snapshot", help="Save a snapshot of the current live definition")
-    p.add_argument("--type",  required=True, choices=["agent", "skill"])
-    p.add_argument("--name",  required=True)
-    p.add_argument("--notes", default="")
-    p.add_argument("--tag",   default="", help="Performance tag for A/B comparison")
+    # sync
+    sub.add_parser("sync", help="Snapshot any agents or skills whose files have changed")
 
     # diff
     p = sub.add_parser("diff", help="Show diff between last two snapshots")
@@ -177,8 +120,7 @@ def main():
     p.add_argument("--limit", type=int, default=20)
 
     args = parser.parse_args()
-    {"upsert": cmd_upsert, "snapshot": cmd_snapshot,
-     "diff": cmd_diff, "list": cmd_list}[args.command](args)
+    {"sync": cmd_sync, "diff": cmd_diff, "list": cmd_list}[args.command](args)
 
 
 if __name__ == "__main__":

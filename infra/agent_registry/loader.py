@@ -1,115 +1,105 @@
 """
 agent_registry/loader.py
 
-Loads agent and skill definitions from BigQuery at runtime.
-This replaces all .md file reads — BigQuery is the single source of truth.
+Loads agent and skill definitions from .claude/ in the project root.
+On each load, compares the current file content to the last BigQuery snapshot
+and automatically writes a new snapshot if the content has changed.
+
+File locations:
+    Agents: <project_root>/.claude/agents/<name>.md
+    Skills: <project_root>/.claude/skills/<name>/SKILL.md
 
 Usage:
     from agent_registry.loader import load_agent, load_skill
 
-    system_prompt = load_agent("extraction-agent")
+    system_prompt = load_agent("data-extractor")
     skill_text    = load_skill("python-data-extraction")
 """
 
-import os
 import logging
-from functools import lru_cache
+import os
+from pathlib import Path
+
 from dotenv import load_dotenv
-from google.cloud import bigquery
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-_BQ_PROJECT = os.getenv("BQ_PROJECT")
-_BQ_DATASET = os.getenv("BQ_DATASET")
+# Project root is three levels up from this file:
+# infra/agent_registry/loader.py -> infra/agent_registry/ -> infra/ -> project root
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_CLAUDE_DIR = _PROJECT_ROOT / ".claude"
 
-if not _BQ_PROJECT:
-    raise EnvironmentError("BQ_PROJECT is not set in .env")
-if not _BQ_DATASET:
-    raise EnvironmentError("BQ_DATASET is not set in .env")
+_BQ_ENABLED = bool(os.getenv("BQ_PROJECT") and os.getenv("BQ_DATASET"))
+if not _BQ_ENABLED:
+    logger.warning(
+        "[loader] BQ_PROJECT or BQ_DATASET not set — snapshots will be skipped."
+    )
 
 
-def _client() -> bigquery.Client:
-    return bigquery.Client(project=_BQ_PROJECT)
-
-
-# ── Core loaders ───────────────────────────────────────────────────────────────
+# ── Public loaders ─────────────────────────────────────────────────────────────
 
 def load_agent(name: str) -> str:
     """
-    Return the content (system prompt) for the named agent.
-    Raises ValueError if the agent is not found or inactive.
+    Read the agent definition from .claude/agents/<name>.md.
+    Auto-snapshots to BigQuery if the content has changed since the last snapshot.
     """
-    return _load_definition(table="agents", name=name)
+    path = _CLAUDE_DIR / "agents" / f"{name}.md"
+    return _load(name=name, path=path, table="agent_snapshots")
 
 
 def load_skill(name: str) -> str:
     """
-    Return the content for the named skill.
-    Raises ValueError if the skill is not found or inactive.
+    Read the skill definition from .claude/skills/<name>/SKILL.md.
+    Auto-snapshots to BigQuery if the content has changed since the last snapshot.
     """
-    return _load_definition(table="skills", name=name)
+    path = _CLAUDE_DIR / "skills" / name / "SKILL.md"
+    return _load(name=name, path=path, table="skill_snapshots")
 
 
-def _load_definition(table: str, name: str) -> str:
-    sql = f"""
-        SELECT content
-        FROM `{_BQ_PROJECT}.{_BQ_DATASET}.{table}`
-        WHERE name = @name
-          AND is_active = TRUE
-        LIMIT 1
-    """
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[bigquery.ScalarQueryParameter("name", "STRING", name)]
-    )
-    rows = list(_client().query(sql, job_config=job_config).result())
+# ── Internal ───────────────────────────────────────────────────────────────────
 
-    if not rows:
-        raise ValueError(
-            f"No active definition found in '{table}' for name='{name}'. "
-            f"Check that the row exists and is_active=TRUE in BigQuery."
+def _load(name: str, path: Path, table: str) -> str:
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Definition file not found: {path}\n"
+            f"Expected at: .claude/agents/<name>.md or .claude/skills/<name>/SKILL.md"
         )
 
-    logger.info("[loader] Loaded %s '%s' from BigQuery", table.rstrip("s"), name)
-    return rows[0]["content"]
+    content = path.read_text(encoding="utf-8")
+    logger.info("[loader] Loaded '%s' from %s", name, path.relative_to(_PROJECT_ROOT))
+
+    if _BQ_ENABLED:
+        _auto_snapshot(name=name, content=content, table=table)
+
+    return content
 
 
-# ── Cached loader (optional, for high-frequency agents) ───────────────────────
+def _auto_snapshot(name: str, content: str, table: str) -> None:
+    """Write a new snapshot if content differs from the last recorded snapshot."""
+    from agent_registry.parser import parse_md
+    from agent_registry.snapshot import get_last_snapshot, write_snapshot
 
-@lru_cache(maxsize=64)
-def load_agent_cached(name: str) -> str:
-    """
-    Same as load_agent() but caches the result in-process for the lifetime
-    of the Python interpreter. Useful when the same agent is called many
-    times per second and you don't need real-time updates.
+    last = get_last_snapshot(name=name, table=table)
 
-    To clear the cache manually:
-        load_agent_cached.cache_clear()
-    """
-    return load_agent(name)
+    if last is not None and last["content"] == content:
+        logger.debug("[loader] '%s' unchanged — no snapshot written", name)
+        return
 
+    parsed = parse_md(content)
+    version = (last["version"] + 1) if last else 1
+    is_agent = table == "agent_snapshots"
 
-# ── Batch loader (load all active definitions at startup) ─────────────────────
-
-def load_all_agents() -> dict[str, str]:
-    """Return {name: content} for all active agents."""
-    return _load_all("agents")
-
-
-def load_all_skills() -> dict[str, str]:
-    """Return {name: content} for all active skills."""
-    return _load_all("skills")
-
-
-def _load_all(table: str) -> dict[str, str]:
-    sql = f"""
-        SELECT name, content
-        FROM `{_BQ_PROJECT}.{_BQ_DATASET}.{table}`
-        WHERE is_active = TRUE
-        ORDER BY name
-    """
-    rows = list(_client().query(sql).result())
-    result = {r["name"]: r["content"] for r in rows}
-    logger.info("[loader] Loaded %d active %s from BigQuery", len(result), table)
-    return result
+    write_snapshot(
+        name=name,
+        content=content,
+        version=version,
+        table=table,
+        description=parsed.get("description") or "",
+        tools=parsed["tools"] if is_agent else None,
+        skills=parsed["skills"] if is_agent else None,
+        sections=parsed["sections"],
+    )
+    logger.info("[loader] Auto-snapshotted '%s' as v%d", name, version)
+    print(f"[registry] '{name}' changed — snapshot v{version} written to {table}")
