@@ -20,36 +20,41 @@ jobs:
         run: pip install ruff sqlfluff
 
       - name: Lint Python
-        run: ruff check extraction/
+        run: ruff check 01_extraction/
 
       - name: Lint SQL (dbt)
-        run: sqlfluff lint dbt/models/ --dialect bigquery
+        run: sqlfluff lint 02_dbt/models/ --dialect bigquery
 
   docker-build:
     name: Docker Build
     runs-on: ubuntu-latest
     needs: lint
+    permissions:
+      contents: read
+      id-token: write   # required for Workload Identity Federation
     steps:
       - uses: actions/checkout@v4
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.SERVICE_ACCOUNT }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker YOUR_REGION-docker.pkg.dev
+        run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev
 
       - name: Build and push extraction images
         run: |
-          for dir in extraction/*/; do
+          shopt -s nullglob
+          for dir in 01_extraction/*/; do
             source=$(basename "$dir")
             docker build \
-              -t YOUR_REGION-docker.pkg.dev/YOUR_GCP_PROJECT_ID/extraction/${source}:${{ github.sha }} \
-              -t YOUR_REGION-docker.pkg.dev/YOUR_GCP_PROJECT_ID/extraction/${source}:latest \
+              -t ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/extraction/${source}:${{ github.sha }} \
+              -t ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/extraction/${source}:latest \
               "$dir"
-            docker push YOUR_REGION-docker.pkg.dev/YOUR_GCP_PROJECT_ID/extraction/${source}:${{ github.sha }}
+            docker push ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/extraction/${source}:${{ github.sha }}
           done
