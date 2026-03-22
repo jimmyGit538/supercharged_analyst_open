@@ -70,8 +70,8 @@ SALESFORCE_DOMAIN=login
 STRIPE_API_KEY=
 MY_API_BASE_URL=https://api.example.com
 MY_API_KEY=
-GCP_PROJECT_ID=
-BQ_DATASET=raw
+BQ_PROJECT_EXTRACTION=your-gcp-project-id   # GCP project for raw extraction writes
+BQ_DATASET_EXTRACTION=raw                   # always "raw" for extraction jobs
 ```
 
 ```python
@@ -100,7 +100,8 @@ echo -n "sk_live_..." | gcloud secrets versions add STRIPE_API_KEY --data-file=-
 # Mount secrets as env vars when creating the Cloud Run Job
 gcloud run jobs update stripe-extractor \
   --update-secrets=STRIPE_API_KEY=STRIPE_API_KEY:latest \
-  --update-secrets=GCP_PROJECT_ID=GCP_PROJECT_ID:latest
+  --update-secrets=BQ_PROJECT_EXTRACTION=BQ_PROJECT_EXTRACTION:latest \
+  --update-secrets=BQ_DATASET_EXTRACTION=BQ_DATASET_EXTRACTION:latest
 ```
 
 ---
@@ -164,6 +165,54 @@ def fetch_stripe_charges(after_cursor: str | None = None) -> list[dict]:
 | Stripe | Cursor | `starting_after` on list endpoints |
 | Generic REST API | Timestamp or cursor | Depends on API docs |
 
+### No New Data — Graceful Exit (Required)
+
+Every incremental extractor **must** handle the case where no new data is available
+and exit cleanly with code 0. APIs vary in how they signal this:
+
+| API behaviour | How to handle |
+|---|---|
+| Returns empty list `[]` | Check `if not records` before loading |
+| Returns HTTP 200 with `{"data": []}` | Same — check length after parsing |
+| Returns error message like "No data available" | Catch the specific message, return `[]` |
+| Returns HTTP 404 / 416 | Catch the status code, treat as empty |
+
+**Pattern — apply in `extract()` and `main()`:**
+
+```python
+def extract(start_date: str | None) -> list[dict]:
+    response = requests.get(url, params=params, timeout=30)
+    response.raise_for_status()
+    data = response.json()
+
+    # Some APIs return an error payload instead of an empty list
+    if data.get("status") == "error":
+        msg = data.get("message", "")
+        if "no data" in msg.lower() or "not available" in msg.lower():
+            print("[extract] No new data available — non-trading period or empty range.")
+            return []
+        raise RuntimeError(f"API error: {msg}")
+
+    return data.get("values", [])
+
+
+def main():
+    ...
+    records = extract(start_date=watermark)
+    if not records:
+        print("[main] No new data. Exiting.")
+        return  # exit 0 — do NOT raise, do NOT update watermark
+
+    load(client, records)
+```
+
+**Rules:**
+- Never crash when there is simply no new data — this is expected on weekends,
+  holidays, or off-hours runs
+- Never update the watermark if `extract()` returns empty — the next run must
+  retry from the same position
+- Log clearly so Cloud Logging shows the reason for the early exit
+
 ---
 
 ## 5. BigQuery Loader
@@ -196,8 +245,8 @@ def load_to_bigquery(records: list[dict], table_id: str):
 
 
 def get_bq_table_id(source: str) -> str:
-    project = os.getenv("GCP_PROJECT_ID")
-    dataset = os.getenv("BQ_DATASET", "raw")
+    project = os.getenv("BQ_PROJECT_EXTRACTION")
+    dataset = os.getenv("BQ_DATASET_EXTRACTION", "raw")
     return f"{project}.{dataset}.{source}"
 ```
 
@@ -230,7 +279,9 @@ from google.cloud import bigquery
 load_dotenv()
 
 SOURCE_KEY = "salesforce_contacts"
-BQ_TABLE = f"{os.getenv('GCP_PROJECT_ID')}.raw.{SOURCE_KEY}"
+BQ_PROJECT = os.getenv("BQ_PROJECT_EXTRACTION")
+BQ_DATASET = os.getenv("BQ_DATASET_EXTRACTION", "raw")
+BQ_TABLE = f"{BQ_PROJECT}.{BQ_DATASET}.{SOURCE_KEY}"
 
 SF_OBJECT = "Contact"
 SF_FIELDS = ["Id", "Name", "Email", "LastModifiedDate"]
@@ -291,7 +342,9 @@ from google.cloud import bigquery
 load_dotenv()
 
 SOURCE_KEY = "my_api_records"
-BQ_TABLE = f"{os.getenv('GCP_PROJECT_ID')}.raw.{SOURCE_KEY}"
+BQ_PROJECT = os.getenv("BQ_PROJECT_EXTRACTION")
+BQ_DATASET = os.getenv("BQ_DATASET_EXTRACTION", "raw")
+BQ_TABLE = f"{BQ_PROJECT}.{BQ_DATASET}.{SOURCE_KEY}"
 BASE_URL = os.getenv("MY_API_BASE_URL")
 
 
@@ -368,7 +421,8 @@ gcloud run jobs create salesforce-extractor \
   --update-secrets=SALESFORCE_USERNAME=SALESFORCE_USERNAME:latest \
   --update-secrets=SALESFORCE_PASSWORD=SALESFORCE_PASSWORD:latest \
   --update-secrets=SALESFORCE_SECURITY_TOKEN=SALESFORCE_SECURITY_TOKEN:latest \
-  --update-secrets=GCP_PROJECT_ID=GCP_PROJECT_ID:latest \
+  --update-secrets=BQ_PROJECT_EXTRACTION=BQ_PROJECT_EXTRACTION:latest \
+  --update-secrets=BQ_DATASET_EXTRACTION=BQ_DATASET_EXTRACTION:latest \
   --memory 512Mi \
   --task-timeout 3600
 ```
@@ -440,6 +494,8 @@ google-cloud-storage
 ## Error Handling Rules
 
 - Validate all required environment variables at startup; fail fast
-- Raise exceptions on API errors — do not silently continue
+- Raise exceptions on real API errors — do not silently continue
+- **No new data is not an error** — handle it as a clean exit (see Section 4)
 - Do not update the watermark if extraction or load fails (preserves retry from last good state)
+- Do not update the watermark if `extract()` returns empty — next run must retry from the same position
 - Log the source name and record count at each stage for Cloud Logging observability
