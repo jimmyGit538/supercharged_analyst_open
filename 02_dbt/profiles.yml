@@ -4,7 +4,7 @@ supercharged_analyst:
     dev:
       type: bigquery
       method: oauth
-      project: YOUR_GCP_PROJECT_ID
+      project: "{{ env_var('BQ_PROJECT') }}"
       dataset: dbt_dev
       threads: 4
       timeout_seconds: 300
@@ -12,9 +12,9 @@ supercharged_analyst:
     prod:
       type: bigquery
       method: service-account-impersonation
-      project: YOUR_GCP_PROJECT_ID
+      project: "{{ env_var('BQ_PROJECT') }}"
       dataset: dbt_prod
-      impersonate_service_account: YOUR_DBT_SERVICE_ACCOUNT@YOUR_GCP_PROJECT_ID.iam.gserviceaccount.com
+      impersonate_service_account: "{{ env_var('DBT_SERVICE_ACCOUNT') }}"
       threads: 4
       timeout_seconds: 300
       location: US

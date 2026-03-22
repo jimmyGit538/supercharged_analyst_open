@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit:*)",
+      "Bash(bash infra/agent_registry/deploy.sh)",
+      "WebFetch(domain:twelvedata.com)",
+      "Bash(git add:*)"
+    ]
+  }
+}

@@ -7,12 +7,14 @@ Commands:
     sync     -- scan all .claude/agents/ and .claude/skills/ files and snapshot any that changed
     diff     -- show unified diff between last two snapshots for a given name
     list     -- list snapshot history for a given name
+    upsert   -- snapshot a single agent or skill from an explicit file path
 
 Usage:
     python -m agent_registry.manage sync
-    python -m agent_registry.manage diff  --type agent --name data-extractor
-    python -m agent_registry.manage list  --type agent --name data-extractor
-    python -m agent_registry.manage list  --type skill --name python-data-extraction --limit 10
+    python -m agent_registry.manage diff   --type agent --name data-extractor
+    python -m agent_registry.manage list   --type agent --name data-extractor
+    python -m agent_registry.manage list   --type skill --name python-data-extraction --limit 10
+    python -m agent_registry.manage upsert --type agent --name data-extractor --file .claude/agents/data-extractor.md --notes "initial seed"
 """
 
 import argparse
@@ -95,6 +97,44 @@ def cmd_list(args):
         )
 
 
+def cmd_upsert(args):
+    """
+    Snapshot a single agent or skill from an explicit file path.
+    Writes a new snapshot only if the file content has changed since the last snapshot.
+    """
+    from agent_registry.parser import parse_md
+    from agent_registry.snapshot import get_last_snapshot, write_snapshot
+
+    file_path = Path(args.file)
+    if not file_path.exists():
+        print(f"ERROR: file not found: {file_path}", file=sys.stderr)
+        sys.exit(1)
+
+    table = "agent_snapshots" if args.type == "agent" else "skill_snapshots"
+    is_agent = args.type == "agent"
+    content = file_path.read_text(encoding="utf-8")
+
+    last = get_last_snapshot(name=args.name, table=table)
+    if last is not None and last["content"] == content:
+        print(f"[upsert] '{args.name}' unchanged — no snapshot written")
+        return
+
+    parsed = parse_md(content)
+    version = (last["version"] + 1) if last else 1
+    write_snapshot(
+        name=args.name,
+        content=content,
+        version=version,
+        table=table,
+        description=parsed.get("description") or "",
+        tools=parsed["tools"] if is_agent else None,
+        skills=parsed["skills"] if is_agent else None,
+        sections=parsed["sections"],
+        notes=args.notes,
+    )
+    print(f"[upsert] '{args.name}' snapshot v{version} written to {table}")
+
+
 # ── CLI entry ──────────────────────────────────────────────────────────────────
 
 def main():
@@ -119,8 +159,15 @@ def main():
     p.add_argument("--name",  required=True)
     p.add_argument("--limit", type=int, default=20)
 
+    # upsert
+    p = sub.add_parser("upsert", help="Snapshot a single agent or skill from an explicit file path")
+    p.add_argument("--type",  required=True, choices=["agent", "skill"])
+    p.add_argument("--name",  required=True)
+    p.add_argument("--file",  required=True, help="Path to the .md file")
+    p.add_argument("--notes", default=None, help="Optional notes for this snapshot")
+
     args = parser.parse_args()
-    {"sync": cmd_sync, "diff": cmd_diff, "list": cmd_list}[args.command](args)
+    {"sync": cmd_sync, "diff": cmd_diff, "list": cmd_list, "upsert": cmd_upsert}[args.command](args)
 
 
 if __name__ == "__main__":
