@@ -18,6 +18,13 @@ GCP-native modern data stack for a small analytics team. The goal is to extract,
     4_marts/                            # Fact and dimension mart tables
   tests/                                # dbt tests
 infra/                                  # GCP bootstrap scripts, gcloud / Terraform configs
+  agent_registry/                       # Registry that snapshots agent/skill changes to BigQuery
+    schema.sql                          # DDL: agent_snapshots, skill_snapshots tables
+    loader.py                           # Runtime loader — reads .claude/ files, auto-snapshots on change
+    snapshot.py                         # Snapshot engine — append-only audit log and diff utility
+    manage.py                           # CLI: sync, diff, list commands
+    example_agent.py                    # Reference implementation for bootstrapping an agent from the registry
+    requirements.txt                    # Dependencies: google-cloud-bigquery, anthropic, python-dotenv
 docs/                                   # Strategy documents and reference material
 .github/workflows/                      # CI only: lint + docker build+push (NOT pipeline scheduling)
 ```
@@ -65,6 +72,26 @@ docs/                                   # Strategy documents and reference mater
 - `warehouses` - dbt warehouse tables (cleaned extraction)
 - `marts` — dbt mart tables (source for Looker Studio)
 
+## Agent Registry
+
+The `infra/agent_registry/` package tracks every change to agent and skill definitions as an append-only audit log in BigQuery.
+
+**Source of truth:** `.md` files in `.claude/` — edit these in your IDE.
+- Agents: `.claude/agents/<name>.md`
+- Skills: `.claude/skills/<name>/SKILL.md`
+
+**BigQuery role:** append-only snapshot history (`agent_snapshots`, `skill_snapshots`) — queryable audit log, not the live source of truth.
+
+**How it works:**
+1. `schema.sql` provisions two BigQuery tables: `agent_snapshots`, `skill_snapshots`.
+2. `loader.py` reads definitions from `.claude/` at agent startup. If the file content has changed since the last snapshot, it automatically writes a new snapshot to BigQuery — no manual step needed.
+3. `snapshot.py` is the low-level writer; it also exposes `diff` and `list_snapshots` for querying history.
+4. `manage.py sync` iterates all `.claude/` files and triggers the same auto-snapshot logic — useful for bulk syncs or CI.
+
+**Rules:**
+- Edit agent and skill definitions in `.claude/` only — never write directly to BigQuery snapshot tables.
+- Use `performance_tag` in snapshots when A/B testing prompt variants so results can be queried and compared.
+
 ## Hard Rules
 
 - **Never use GitHub Actions as a pipeline scheduler.** GitHub Actions is for CI/CD only (lint, test, docker build+push).
@@ -72,3 +99,4 @@ docs/                                   # Strategy documents and reference mater
 - **All infrastructure changes must be codified** in `infra/` — no manual console changes.
 - **All Claude Code-generated code must go through a GitHub PR** before merging to main. Human review is the mandatory checkpoint.
 - **BigQuery cost controls:** always use column pruning, table partitioning, and `maximum_bytes_billed` limits.
+- **This repository is public.** Every file committed here is publicly visible. Never include real credentials, project IDs, account numbers, or internal URLs in any file. Always use placeholder values (e.g. `YOUR_PROJECT_ID`) or environment variable references (`${{ secrets.X }}`, `os.getenv("X")`). Secrets belong in `.env` (gitignored) or GitHub Actions secrets — never in code.
