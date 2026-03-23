@@ -46,10 +46,14 @@ gcloud iam service-accounts create workflow-runner \
   --project="$PROJECT_ID" \
   || echo "SA 'workflow-runner' already exists — skipping"
 
-# Allow the workflow SA to invoke Cloud Run Jobs
+# Allow the workflow SA to invoke Cloud Run Jobs and poll operation status
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --member="serviceAccount:${WORKFLOW_SA}" \
   --role="roles/run.invoker"
+
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${WORKFLOW_SA}" \
+  --role="roles/run.viewer"
 
 # ── Deploy the workflow ───────────────────────────────────────────────────────
 gcloud workflows deploy "$WORKFLOW_NAME" \
