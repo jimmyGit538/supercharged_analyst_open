@@ -19,7 +19,10 @@ with staged as (
 
 metadata as (
 
-    select index_ticker, index_name from {{ ref('wh_indices_metadata') }}
+    select
+        index_ticker,
+        index_name
+    from {{ ref('wh_indices_metadata') }}
 
 ),
 
@@ -36,16 +39,16 @@ final as (
         s.vol_20d_annualized,
         s.rolling_max_close_252d,
 
-        -- Drawdown from 52-week high: always <= 0 (0 = at or above the prior 252d peak)
+        -- Drawdown from 52-week high: always <= 0 (0 = at or above 252d peak)
         safe_divide(
             s.close - s.rolling_max_close_252d,
             s.rolling_max_close_252d
-        )                                                       as drawdown_from_52w_high,
+        ) as drawdown_from_52w_high,
 
-        current_timestamp()                                     as _loaded_at
+        current_timestamp() as _loaded_at
 
-    from staged s
-    inner join metadata m
+    from staged as s
+    inner join metadata as m
         on s.index_ticker = m.index_ticker
 
 )

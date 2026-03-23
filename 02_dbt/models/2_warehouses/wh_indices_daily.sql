@@ -17,7 +17,7 @@ with staged as (
     select * from {{ ref('stg_twelvedata__indices_prices') }}
 
     {% if is_incremental() %}
-    where date > (select max(date) from {{ this }})
+        where date > (select max(date) from {{ this }})  -- noqa: RF02
     {% endif %}
 
 ),
@@ -32,12 +32,12 @@ with_seq as (
         low,
         close,
         volume,
-        -- Sequential trading day number per ticker; enables trivial lag/lead in downstream models
+        -- Sequential trading day number per ticker; enables trivial lag/lead
         row_number() over (
             partition by index_ticker
             order by date
-        )                               as trading_day_seq,
-        current_timestamp()             as _loaded_at
+        ) as trading_day_seq,
+        current_timestamp() as _loaded_at
 
     from staged
 

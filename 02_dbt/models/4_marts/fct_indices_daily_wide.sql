@@ -49,13 +49,14 @@ joined as (
         r.wtd_return,
         r.mtd_return,
         r.ytd_return,
-        current_timestamp()             as _loaded_at
+        current_timestamp() as _loaded_at
 
-    from daily d
-    inner join returns r
-        on  d.index_ticker = r.index_ticker
-        and d.date         = r.date
-    inner join metadata m
+    from daily as d
+    inner join returns as r
+        on
+            d.index_ticker = r.index_ticker
+            and d.date = r.date
+    inner join metadata as m
         on d.index_ticker = m.index_ticker
 
 )

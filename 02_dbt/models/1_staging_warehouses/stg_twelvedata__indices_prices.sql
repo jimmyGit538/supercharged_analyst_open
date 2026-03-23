@@ -15,18 +15,18 @@ cleaned as (
 
     select
         date,
-        lower(trim(symbol))             as index_ticker,
-        cast(open  as numeric)          as open,
-        cast(high  as numeric)          as high,
-        cast(low   as numeric)          as low,
-        cast(close as numeric)          as close,
+        cast(open as numeric) as open,
+        cast(high as numeric) as high,
+        cast(low as numeric) as low,
+        cast(close as numeric) as close,
         volume,
-        extracted_at
+        extracted_at,
+        lower(trim(symbol)) as index_ticker
 
     from source
 
     where
-        date  is not null
+        date is not null
         and close is not null
 
 )
