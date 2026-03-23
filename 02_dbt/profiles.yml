@@ -25,4 +25,4 @@ supercharged_analyst:
       dataset: staging   # all models use +schema overrides; this dataset already exists
       threads: 4
       timeout_seconds: 300
-      location: US
+      location: us-central1
