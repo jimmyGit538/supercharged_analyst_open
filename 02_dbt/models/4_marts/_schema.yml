@@ -1,0 +1,109 @@
+version: 2
+
+models:
+  - name: fct_indices_daily_wide
+    description: >
+      Primary Looker Studio fact table. One row per (index_ticker, date).
+      Fully denormalized: joins wh_indices_daily, wh_indices_returns, and wh_indices_metadata
+      so dashboards require no additional joins or blended data sources.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [index_ticker, date]
+      - dbt_utils.expression_is_true:
+          expression: "high >= low"
+      - dbt_utils.expression_is_true:
+          expression: "close > 0"
+    columns:
+      - name: index_ticker
+        description: "Lowercase ticker symbol (e.g. ivv, comp, dia)."
+        tests:
+          - not_null
+      - name: index_name
+        description: "Full descriptive name of the index or ETF (from wh_indices_metadata). Use as chart labels in Looker."
+        tests:
+          - not_null
+      - name: asset_class
+        description: "Broad asset class (e.g. equity). Use as a filter dimension in Looker."
+      - name: currency
+        description: "Currency in which prices are denominated."
+      - name: inception_date
+        description: "Date the index or ETF was launched."
+      - name: date
+        description: "Trading date. Primary time dimension."
+        tests:
+          - not_null
+      - name: open
+        description: "Opening price."
+      - name: high
+        description: "Intraday high."
+      - name: low
+        description: "Intraday low."
+      - name: close
+        description: "Closing price."
+        tests:
+          - not_null
+      - name: volume
+        description: "Trading volume."
+      - name: trading_day_seq
+        description: "Sequential trading day number per ticker (1 = first day in history)."
+        tests:
+          - not_null
+      - name: prior_close
+        description: "Previous trading day's closing price. Null on the first day of history."
+      - name: daily_return
+        description: "Daily return: (close - prior_close) / prior_close. Null on first trading day."
+      - name: wtd_return
+        description: "Week-to-date return vs the last close before the current Monday."
+      - name: mtd_return
+        description: "Month-to-date return vs the last close before the 1st of the month."
+      - name: ytd_return
+        description: "Year-to-date return vs the last close before Jan 1."
+      - name: _loaded_at
+        description: "Timestamp when this row was written to the mart by dbt."
+
+  - name: fct_indices_rolling_stats
+    description: >
+      Rolling statistics mart. One row per (index_ticker, date).
+      Provides 20-day and 50-day moving averages, 20-day annualized realized volatility,
+      and drawdown from 52-week high. Full-table refresh on every dbt run (window functions
+      require full history — incremental would save no meaningful cost at this data volume).
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [index_ticker, date]
+      - dbt_utils.expression_is_true:
+          expression: "close > 0"
+      - dbt_utils.expression_is_true:
+          expression: "drawdown_from_52w_high <= 0.001 or drawdown_from_52w_high is null"
+      - dbt_utils.expression_is_true:
+          expression: "vol_20d_annualized >= 0 or vol_20d_annualized is null"
+    columns:
+      - name: index_ticker
+        description: "Lowercase ticker symbol."
+        tests:
+          - not_null
+      - name: index_name
+        description: "Full descriptive name. Carried through for Looker chart labels without a second lookup."
+        tests:
+          - not_null
+      - name: date
+        description: "Trading date."
+        tests:
+          - not_null
+      - name: close
+        description: "Closing price. Carried through for price/MA overlay charts."
+        tests:
+          - not_null
+      - name: trading_day_seq
+        description: "Sequential trading day ordinal. Useful for x-axis alignment across tickers."
+      - name: ma_20d
+        description: "20-day simple moving average of close. Null for the first 19 trading days of history."
+      - name: ma_50d
+        description: "50-day simple moving average of close. Null for the first 49 trading days of history."
+      - name: vol_20d_annualized
+        description: "20-day realized volatility: STDDEV_POP(daily_return) over 20 days * SQRT(252). Annualized decimal. Null for the first 19 days."
+      - name: rolling_max_close_252d
+        description: "Rolling 52-week high (trailing 252 trading days). Denominator for drawdown calculation."
+      - name: drawdown_from_52w_high
+        description: "Drawdown from 52-week high: (close - rolling_max_close_252d) / rolling_max_close_252d. Always <= 0. Zero means the index is at or above its prior-year peak."
+      - name: _loaded_at
+        description: "Timestamp when this row was written to the mart by dbt."

@@ -1,0 +1,75 @@
+version: 2
+
+models:
+  - name: wh_indices_daily
+    description: "Core fact table. One row per (index_ticker, date). Incremental — appends new trading days only."
+    columns:
+      - name: index_ticker
+        description: "Lowercase ticker symbol."
+        tests:
+          - not_null
+      - name: date
+        description: "Trading date."
+        tests:
+          - not_null
+      - name: open
+        description: "Opening price."
+      - name: high
+        description: "Intraday high."
+      - name: low
+        description: "Intraday low."
+      - name: close
+        description: "Closing price."
+        tests:
+          - not_null
+      - name: volume
+        description: "Trading volume."
+      - name: trading_day_seq
+        description: "Sequential trading day number per ticker (1 = first day in history). Enables trivial lag/lead without date arithmetic."
+        tests:
+          - not_null
+      - name: _loaded_at
+        description: "Timestamp when this row was written to the warehouse by dbt."
+
+  - name: wh_indices_returns
+    description: "Return metrics built on wh_indices_daily. One row per (index_ticker, date). Includes daily, WTD, MTD, and YTD returns."
+    columns:
+      - name: index_ticker
+        description: "Lowercase ticker symbol."
+        tests:
+          - not_null
+      - name: date
+        description: "Trading date."
+        tests:
+          - not_null
+      - name: close
+        description: "Closing price for the day."
+      - name: prior_close
+        description: "Previous trading day's closing price. Null on the first day of history."
+      - name: daily_return
+        description: "Daily return: (close - prior_close) / prior_close. Null on first day."
+      - name: wtd_return
+        description: "Week-to-date return vs the last close before the current Monday. Null on first trading day of the week."
+      - name: mtd_return
+        description: "Month-to-date return vs the last close before the 1st of the month. Null on the first trading day of the month."
+      - name: ytd_return
+        description: "Year-to-date return vs the last close before Jan 1. Null on the first trading day of the year."
+      - name: _loaded_at
+        description: "Timestamp when this row was written to the warehouse by dbt."
+
+  - name: wh_indices_metadata
+    description: "Dimension table. One row per index. Sourced from the indices_metadata seed CSV."
+    columns:
+      - name: index_ticker
+        description: "Lowercase ticker symbol. Joins to wh_indices_daily and wh_indices_returns."
+        tests:
+          - not_null
+          - unique
+      - name: index_name
+        description: "Full descriptive name of the index or ETF."
+      - name: asset_class
+        description: "Broad asset class (e.g. equity, fixed income, commodity)."
+      - name: currency
+        description: "Currency in which prices are denominated."
+      - name: inception_date
+        description: "Date the index or ETF was launched."

@@ -1,0 +1,28 @@
+version: 2
+
+models:
+  - name: stg_twelvedata__indices_prices
+    description: "Cleaned and typed view over the raw Twelvedata indices table. Filters nulls, casts prices to NUMERIC, lowercases ticker."
+    columns:
+      - name: date
+        description: "Trading date."
+        tests:
+          - not_null
+      - name: index_ticker
+        description: "Lowercase ticker symbol (e.g. ivv, comp, dia)."
+        tests:
+          - not_null
+      - name: open
+        description: "Opening price (NUMERIC)."
+      - name: high
+        description: "Intraday high (NUMERIC)."
+      - name: low
+        description: "Intraday low (NUMERIC)."
+      - name: close
+        description: "Closing price (NUMERIC). Rows with null close are filtered out."
+        tests:
+          - not_null
+      - name: volume
+        description: "Trading volume."
+      - name: extracted_at
+        description: "UTC timestamp when the row was written to BigQuery by the extraction job."

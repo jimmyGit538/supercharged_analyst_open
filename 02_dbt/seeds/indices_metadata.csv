@@ -1,0 +1,4 @@
+index_ticker,index_name,asset_class,currency,inception_date
+ivv,iShares Core S&P 500 ETF,equity,USD,2000-05-15
+comp,Nasdaq Composite Index,equity,USD,1971-02-05
+dia,SPDR Dow Jones Industrial Average ETF,equity,USD,1998-01-14

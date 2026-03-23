@@ -17,9 +17,19 @@ clean-targets:
 
 models:
   supercharged_analyst:
-    staging:
+    1_staging_warehouses:
       +materialized: view
       +schema: staging
-    marts:
+    2_warehouses:
+      +materialized: table
+      +schema: warehouses
+    3_staging_marts:
+      +materialized: view
+      +schema: staging
+    4_marts:
       +materialized: table
       +schema: marts
+
+seeds:
+  supercharged_analyst:
+    +schema: warehouses
