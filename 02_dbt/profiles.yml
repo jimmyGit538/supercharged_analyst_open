@@ -22,7 +22,7 @@ supercharged_analyst:
       type: bigquery
       method: oauth
       project: "{{ env_var('BQ_PROJECT') }}"
-      dataset: dbt_cloudrun   # scratch dataset; models write to their own schemas via +schema config
+      dataset: staging   # all models use +schema overrides; this dataset already exists
       threads: 4
       timeout_seconds: 300
       location: US

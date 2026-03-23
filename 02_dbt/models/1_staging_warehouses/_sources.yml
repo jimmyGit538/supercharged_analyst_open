@@ -7,10 +7,11 @@ sources:
     tables:
       - name: twelvedata_indices_daily
         description: "Daily OHLCV prices for equity indices/ETFs loaded by the Twelvedata extraction job."
-        loaded_at_field: extracted_at
-        freshness:
-          warn_after: {count: 1, period: day}
-          error_after: {count: 3, period: day}
+        config:
+          loaded_at_field: extracted_at
+          freshness:
+            warn_after: {count: 1, period: day}
+            error_after: {count: 3, period: day}
         columns:
           - name: date
             description: "Trading date."

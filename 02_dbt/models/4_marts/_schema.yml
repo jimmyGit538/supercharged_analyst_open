@@ -8,11 +8,14 @@ models:
       so dashboards require no additional joins or blended data sources.
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns: [index_ticker, date]
+          arguments:
+            combination_of_columns: [index_ticker, date]
       - dbt_utils.expression_is_true:
-          expression: "high >= low"
+          arguments:
+            expression: "high >= low"
       - dbt_utils.expression_is_true:
-          expression: "close > 0"
+          arguments:
+            expression: "close > 0"
     columns:
       - name: index_ticker
         description: "Lowercase ticker symbol (e.g. ivv, comp, dia)."
@@ -69,13 +72,17 @@ models:
       require full history — incremental would save no meaningful cost at this data volume).
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns: [index_ticker, date]
+          arguments:
+            combination_of_columns: [index_ticker, date]
       - dbt_utils.expression_is_true:
-          expression: "close > 0"
+          arguments:
+            expression: "close > 0"
       - dbt_utils.expression_is_true:
-          expression: "drawdown_from_52w_high <= 0.001 or drawdown_from_52w_high is null"
+          arguments:
+            expression: "drawdown_from_52w_high <= 0.001 or drawdown_from_52w_high is null"
       - dbt_utils.expression_is_true:
-          expression: "vol_20d_annualized >= 0 or vol_20d_annualized is null"
+          arguments:
+            expression: "vol_20d_annualized >= 0 or vol_20d_annualized is null"
     columns:
       - name: index_ticker
         description: "Lowercase ticker symbol."

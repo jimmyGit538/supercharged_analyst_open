@@ -57,6 +57,7 @@ jobs:
               -t ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/extraction/${source}:latest \
               "$dir"
             docker push ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/extraction/${source}:${{ github.sha }}
+            docker push ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/extraction/${source}:latest
           done
 
       - name: Build and push dbt image
@@ -66,3 +67,4 @@ jobs:
             -t ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/extraction/dbt-runner:latest \
             02_dbt/
           docker push ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/extraction/dbt-runner:${{ github.sha }}
+          docker push ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/extraction/dbt-runner:latest
