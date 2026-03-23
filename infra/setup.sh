@@ -19,6 +19,10 @@ PROJECT_ID="${PROJECT_ID:-YOUR_GCP_PROJECT_ID}"                  # e.g. my-proje
 REGION="${REGION:-YOUR_REGION}"                                   # e.g. us-central1
 GITHUB_REPO="${GITHUB_REPO:-YOUR_GITHUB_ORG/YOUR_GITHUB_REPO}"   # e.g. acme/supercharged-analyst
 
+# GitHub OIDC tokens always emit the repo name in its canonical case.
+# Normalise to lowercase so WIF principal set bindings match the token claims.
+GITHUB_REPO="${GITHUB_REPO,,}"
+
 # Fail fast if placeholders were not replaced
 if [[ "$PROJECT_ID" == YOUR_* || "$REGION" == YOUR_* || "$GITHUB_REPO" == YOUR_* ]]; then
   echo "ERROR: Set PROJECT_ID, REGION, and GITHUB_REPO before running." >&2
