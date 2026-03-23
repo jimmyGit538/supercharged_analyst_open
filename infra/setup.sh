@@ -102,10 +102,18 @@ gcloud iam workload-identity-pools providers create-oidc "$WIF_PROVIDER" \
   --attribute-condition="assertion.repository=='${GITHUB_REPO}'" \
   || echo "WIF provider '${WIF_PROVIDER}' already exists — skipping"
 
-# Allow any workflow in this repo to impersonate the CI SA
+# Allow any workflow in this repo to impersonate the CI SA.
+# workloadIdentityUser: lets the WIF principal exchange tokens.
+# serviceAccountTokenCreator: lets it generate SA access tokens (required by
+# google-github-actions/auth when service_account param is used).
 gcloud iam service-accounts add-iam-policy-binding "$CI_SA" \
   --project="$PROJECT_ID" \
   --role="roles/iam.workloadIdentityUser" \
+  --member="principalSet://iam.googleapis.com/${WIF_POOL_NAME}/attribute.repository/${GITHUB_REPO}"
+
+gcloud iam service-accounts add-iam-policy-binding "$CI_SA" \
+  --project="$PROJECT_ID" \
+  --role="roles/iam.serviceAccountTokenCreator" \
   --member="principalSet://iam.googleapis.com/${WIF_POOL_NAME}/attribute.repository/${GITHUB_REPO}"
 
 # ── BigQuery datasets ──────────────────────────────────────────────────────────
