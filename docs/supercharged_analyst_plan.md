@@ -10,7 +10,6 @@ Strategy & Implementation Plan
 
 *Cloud Run · Cloud Scheduler · BigQuery · dbt · Claude*
 
-2025
 
 # **Executive Summary**
 
