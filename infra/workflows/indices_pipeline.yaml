@@ -1,0 +1,87 @@
+# Cloud Workflows definition: indices_pipeline
+#
+# Runs the two Cloud Run Jobs in sequence:
+#   1. twelvedata-indices-daily  (extraction)
+#   2. dbt-indices               (dbt run + test)
+#
+# Triggered once per day by Cloud Scheduler.
+# If either job fails the workflow exits with an error and Cloud Scheduler
+# marks the invocation as failed — visible in Cloud Logging / Monitoring.
+
+main:
+  params: [args]
+  steps:
+
+    - init:
+        assign:
+          - project_id: ${sys.get_env("GOOGLE_CLOUD_PROJECT_ID")}
+          - region:     ${default(map.get(args, "region"), "us-central1")}
+          - jobs_base:  ${"https://run.googleapis.com/v2/projects/" + project_id + "/locations/" + region + "/jobs/"}
+
+    # ── Step 1: extraction ────────────────────────────────────────────────────
+    - run_extraction:
+        call: http.post
+        args:
+          url:  ${jobs_base + "twelvedata-indices-daily:run"}
+          auth:
+            type: OAuth2
+        result: extraction_op
+
+    - wait_extraction:
+        call:   wait_for_operation
+        args:
+          op_name: ${extraction_op.body.name}
+        result: extraction_result
+
+    - check_extraction:
+        switch:
+          - condition: ${"error" in extraction_result}
+            raise:  ${extraction_result.error}
+        next: run_dbt
+
+    # ── Step 2: dbt ───────────────────────────────────────────────────────────
+    - run_dbt:
+        call: http.post
+        args:
+          url:  ${jobs_base + "dbt-indices:run"}
+          auth:
+            type: OAuth2
+        result: dbt_op
+
+    - wait_dbt:
+        call:   wait_for_operation
+        args:
+          op_name: ${dbt_op.body.name}
+        result: dbt_result
+
+    - check_dbt:
+        switch:
+          - condition: ${"error" in dbt_result}
+            raise:  ${dbt_result.error}
+        next: done
+
+    - done:
+        return: "indices pipeline complete"
+
+
+# ── Sub-workflow: poll a Cloud Run v2 long-running operation ──────────────────
+wait_for_operation:
+  params: [op_name]
+  steps:
+    - poll:
+        call: http.get
+        args:
+          url:  ${"https://run.googleapis.com/v2/" + op_name}
+          auth:
+            type: OAuth2
+        result: op
+    - check_done:
+        switch:
+          - condition: ${op.body.done == true}
+            return: ${op.body}
+        next: sleep
+    - sleep:
+        call: sys.sleep
+        args:
+          seconds: 30
+        next: poll

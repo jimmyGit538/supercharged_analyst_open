@@ -18,3 +18,11 @@ supercharged_analyst:
       threads: 4
       timeout_seconds: 300
       location: US
+    cloudrun:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('BQ_PROJECT') }}"
+      dataset: dbt_cloudrun   # scratch dataset; models write to their own schemas via +schema config
+      threads: 4
+      timeout_seconds: 300
+      location: US

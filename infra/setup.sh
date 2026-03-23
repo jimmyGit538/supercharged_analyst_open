@@ -40,6 +40,7 @@ gcloud config set project "$PROJECT_ID"
 gcloud services enable \
   run.googleapis.com \
   cloudscheduler.googleapis.com \
+  workflows.googleapis.com \
   bigquery.googleapis.com \
   artifactregistry.googleapis.com \
   logging.googleapis.com \
@@ -149,6 +150,61 @@ gcloud iam service-accounts add-iam-policy-binding "$EXTRACTION_SA" \
   --project="$PROJECT_ID" \
   --member="serviceAccount:${EXTRACTION_SA}" \
   --role="roles/iam.serviceAccountUser"
+
+# ── dbt runner service account ─────────────────────────────────────────────────
+# Used by the dbt-indices Cloud Run Job at runtime.
+gcloud iam service-accounts create dbt-runner \
+  --display-name="dbt Runner" \
+  || echo "Service account 'dbt-runner' already exists — skipping"
+
+DBT_SA="dbt-runner@${PROJECT_ID}.iam.gserviceaccount.com"
+
+# dbt needs to create/replace tables in staging, warehouses, and marts datasets
+for dataset in staging warehouses marts; do
+  TMPFILE=$(mktemp /tmp/bq_${dataset}_acl.XXXXXX.json)
+  bq show --format=json "${PROJECT_ID}:${dataset}" > "$TMPFILE"
+  python3 - "$TMPFILE" "${DBT_SA}" <<'PYEOF'
+import sys, json
+path, sa = sys.argv[1], sys.argv[2]
+with open(path) as f:
+    data = json.load(f)
+access = data.get("access", [])
+if any(e.get("userByEmail") == sa for e in access):
+    print(f"{sa} already has access — skipping")
+else:
+    access.append({"role": "WRITER", "userByEmail": sa})
+    with open(path, "w") as f:
+        json.dump({"access": access}, f)
+    print(f"Granted WRITER access on {path} to {sa}")
+PYEOF
+  bq update --source="$TMPFILE" "${PROJECT_ID}:${dataset}"
+  rm -f "$TMPFILE"
+done
+
+# dbt also needs read access to the raw dataset (via staging views)
+TMPFILE=$(mktemp /tmp/bq_raw_dbt_acl.XXXXXX.json)
+bq show --format=json "${PROJECT_ID}:raw" > "$TMPFILE"
+python3 - "$TMPFILE" "${DBT_SA}" <<'PYEOF'
+import sys, json
+path, sa = sys.argv[1], sys.argv[2]
+with open(path) as f:
+    data = json.load(f)
+access = data.get("access", [])
+if any(e.get("userByEmail") == sa for e in access):
+    print(f"{sa} already has read access — skipping")
+else:
+    access.append({"role": "READER", "userByEmail": sa})
+    with open(path, "w") as f:
+        json.dump({"access": access}, f)
+    print(f"Granted READER access on raw dataset to {sa}")
+PYEOF
+bq update --source="$TMPFILE" "${PROJECT_ID}:raw"
+rm -f "$TMPFILE"
+
+# dbt runner needs BigQuery Job User to run queries
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${DBT_SA}" \
+  --role="roles/bigquery.jobUser"
 
 # ── Output GitHub configuration ────────────────────────────────────────────────
 WIF_PROVIDER_FULL="projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${WIF_POOL}/providers/${WIF_PROVIDER}"

@@ -1,0 +1,30 @@
+version: 2
+
+sources:
+  - name: raw
+    database: "{{ env_var('BQ_PROJECT') }}"
+    schema: raw
+    tables:
+      - name: twelvedata_indices_daily
+        description: "Daily OHLCV prices for equity indices/ETFs loaded by the Twelvedata extraction job."
+        loaded_at_field: extracted_at
+        freshness:
+          warn_after: {count: 1, period: day}
+          error_after: {count: 3, period: day}
+        columns:
+          - name: date
+            description: "Trading date."
+          - name: symbol
+            description: "Ticker symbol (e.g. IVV, COMP, DIA)."
+          - name: open
+            description: "Opening price."
+          - name: high
+            description: "Intraday high."
+          - name: low
+            description: "Intraday low."
+          - name: close
+            description: "Closing price."
+          - name: volume
+            description: "Trading volume."
+          - name: extracted_at
+            description: "UTC timestamp when the row was written to BigQuery."
