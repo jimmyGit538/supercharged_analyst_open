@@ -4,8 +4,8 @@
 # Prerequisites:
 #   - infra/setup.sh has been run (APIs enabled, SAs created)
 #   - Both Cloud Run Jobs already exist:
-#       * twelvedata-indices-daily
-#       * dbt-indices
+#       * indices-extract-daily
+#       * indices-transform-daily
 #   - gcloud auth login && gcloud config set project YOUR_PROJECT_ID
 #
 # Usage:

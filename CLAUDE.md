@@ -66,6 +66,27 @@ docs/                                   # Strategy documents and reference mater
 
 - All models must have column-level documentation and dbt tests
 
+**Cloud Run Jobs**
+- Pattern: `{pipeline}-{stage}-{frequency}` — e.g., `indices-extract-daily`, `indices-dbt-warehouse-daily`
+- `pipeline` is the data source / domain (e.g. `indices`, `salesforce`, `stripe`)
+- `frequency` is the run cadence: `hourly` | `daily` | `weekly` | `monthly` | `quarterly` | `yearly`
+- `stage` describes the job's position in the pipeline:
+
+| `stage` value | dbt layer | What it does | Reads from | Writes to |
+|---|---|---|---|---|
+| `extract` | — | Pulls data from the source system | External API | `raw` dataset |
+| `dbt-stg-warehouse` | `1_staging_warehouses` | Builds staging views from raw sources | `raw` dataset | `stg_warehouses` dataset |
+| `dbt-warehouse` | `2_warehouses` | Seeds reference CSVs + builds warehouse tables | `stg_warehouses` dataset | `warehouses` dataset |
+| `dbt-stg-marts` | `3_staging_marts` | Builds staging views feeding the mart layer | `warehouses` dataset | `stg_marts` dataset |
+| `dbt-mart` | `4_marts` | Builds fact and dimension tables | `stg_marts` dataset | `marts` dataset |
+
+Examples:
+- `indices-extract-daily` — daily extraction of index data from Twelvedata into `raw`
+- `indices-dbt-stg-warehouse-daily` — builds staging views from raw indices data
+- `indices-dbt-warehouse-daily` — seeds metadata + builds warehouse tables for indices
+- `indices-dbt-stg-marts-daily` — builds staging views feeding the indices mart layer
+- `indices-dbt-mart-daily` — builds fact and dimension tables for Looker Studio
+
 **BigQuery datasets**
 - `raw` — landing zone for extraction jobs (Data Editor access only)
 - `staging` — dbt staging views
