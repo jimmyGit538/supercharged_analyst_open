@@ -1,0 +1,13 @@
+project_id  = "your-gcp-project-id"
+region      = "us-central1"
+github_repo = "your-org/your-repo"
+
+sources = {
+  indices = {
+    extraction_image = "twelvedata-indices"
+    frequency        = "daily"
+    schedule         = "0 6 * * *"
+    env_vars         = { BQ_PROJECT_EXTRACTION = "your-gcp-project-id" }
+    secrets          = { TWELVEDATA_API_KEY = "latest" }
+  }
+}

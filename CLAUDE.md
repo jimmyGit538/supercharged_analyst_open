@@ -17,7 +17,25 @@ GCP-native modern data stack for a small analytics team. The goal is to extract,
     3_staging_marts/                    # Staging views feeding mart layer
     4_marts/                            # Fact and dimension mart tables
   tests/                                # dbt tests
-infra/                                  # GCP bootstrap scripts, gcloud / Terraform configs
+infra/                                  # GCP infrastructure (Terraform + legacy bootstrap scripts)
+  terraform/                            # Terraform IaC — primary infra management
+    main.tf                             # Provider config, GCP API enablement
+    variables.tf                        # Input variables (project_id, region, sources map)
+    locals.tf                           # Auto-generates Cloud Run Jobs from sources map
+    sources.tf                          # Cloud Run Jobs + Cloud Scheduler (for_each)
+    workflows.tf                        # Cloud Workflows (references YAML via file())
+    iam.tf                              # 5 service accounts, IAM bindings, WIF
+    bigquery.tf                         # BigQuery datasets
+    artifact_registry.tf                # Docker image repository
+    secrets.tf                          # Secret Manager validation
+    outputs.tf                          # Useful outputs (SA emails, job names, WIF provider)
+    terraform.tfvars.example            # Template — copy to terraform.tfvars and fill in values
+    import.sh                           # One-time import of existing GCP resources into state
+  workflows/                            # Cloud Workflow YAML definitions
+    indices_pipeline.yaml               # Orchestrates 5 Cloud Run Jobs in sequence
+    create_jobs.sh                      # Legacy: manual job creation (superseded by Terraform)
+    deploy.sh                           # Legacy: manual workflow deployment (superseded by Terraform)
+  setup.sh                              # Legacy: one-time GCP bootstrap (superseded by Terraform)
   agent_registry/                       # Registry that snapshots agent/skill changes to BigQuery
     schema.sql                          # DDL: agent_snapshots, skill_snapshots tables
     loader.py                           # Runtime loader — reads .claude/ files, auto-snapshots on change
@@ -36,8 +54,10 @@ docs/                                   # Strategy documents and reference mater
 | Extraction | Python scripts, containerised with Docker |
 | Container Registry | GCP Artifact Registry |
 | Scheduling | Cloud Scheduler → Cloud Run Jobs |
+| Orchestration | Cloud Workflows |
 | Warehouse | BigQuery |
 | Transformation | dbt Core |
+| Infrastructure | Terraform (GCP provider) |
 | Observability | Cloud Logging + Cloud Monitoring |
 | Version Control | GitHub |
 | CI/CD | GitHub Actions (CI only) |
@@ -66,11 +86,61 @@ docs/                                   # Strategy documents and reference mater
 
 - All models must have column-level documentation and dbt tests
 
+**Cloud Run Jobs**
+- Pattern: `{pipeline}-{stage}-{frequency}` — e.g., `indices-extract-daily`, `indices-dbt-warehouse-daily`
+- `pipeline` is the data source / domain (e.g. `indices`, `salesforce`, `stripe`)
+- `frequency` is the run cadence: `hourly` | `daily` | `weekly` | `monthly` | `quarterly` | `yearly`
+- `stage` describes the job's position in the pipeline:
+
+| `stage` value | dbt layer | What it does | Reads from | Writes to |
+|---|---|---|---|---|
+| `extract` | — | Pulls data from the source system | External API | `raw` dataset |
+| `dbt-stg-warehouse` | `1_staging_warehouses` | Builds staging views from raw sources | `raw` dataset | `stg_warehouses` dataset |
+| `dbt-warehouse` | `2_warehouses` | Seeds reference CSVs + builds warehouse tables | `stg_warehouses` dataset | `warehouses` dataset |
+| `dbt-stg-marts` | `3_staging_marts` | Builds staging views feeding the mart layer | `warehouses` dataset | `stg_marts` dataset |
+| `dbt-mart` | `4_marts` | Builds fact and dimension tables | `stg_marts` dataset | `marts` dataset |
+
+Examples:
+- `indices-extract-daily` — daily extraction of index data from Twelvedata into `raw`
+- `indices-dbt-stg-warehouse-daily` — builds staging views from raw indices data
+- `indices-dbt-warehouse-daily` — seeds metadata + builds warehouse tables for indices
+- `indices-dbt-stg-marts-daily` — builds staging views feeding the indices mart layer
+- `indices-dbt-mart-daily` — builds fact and dimension tables for Looker Studio
+
 **BigQuery datasets**
 - `raw` — landing zone for extraction jobs (Data Editor access only)
 - `staging` — dbt staging views
 - `warehouses` - dbt warehouse tables (cleaned extraction)
 - `marts` — dbt mart tables (source for Looker Studio)
+
+## Infrastructure (Terraform)
+
+All GCP infrastructure is managed by Terraform in `infra/terraform/`. This is the source of truth for infrastructure — the legacy shell scripts (`setup.sh`, `create_jobs.sh`, `deploy.sh`) are retained as reference but superseded by Terraform.
+
+**Adding a new data source:**
+1. Create `01_extraction/<source>/main.py`, `requirements.txt`, `Dockerfile`
+2. Create `infra/workflows/<source>_pipeline.yaml` (Cloud Workflow definition)
+3. Add one entry to `terraform.tfvars` in the `sources` map
+4. Run `terraform plan` to review, then `terraform apply`
+5. Push Docker images via GitHub Actions CI
+
+Terraform auto-generates 5 Cloud Run Jobs per source from the `sources` map:
+- 1 extraction job (source-specific Docker image)
+- 4 dbt jobs (shared `dbt-runner` image, stage-specific commands)
+
+**Service accounts** (5 total, managed in `iam.tf`):
+
+| Account | Purpose |
+|---|---|
+| `extraction-runner` | Runs extraction Cloud Run Jobs, writes to `raw` dataset |
+| `dbt-runner` | Runs dbt Cloud Run Jobs, reads `raw`, writes `staging`/`warehouses`/`marts` |
+| `github-actions-ci` | Pushes Docker images to Artifact Registry (via WIF, no keys) |
+| `workflow-runner` | Executes Cloud Workflows, invokes Cloud Run Jobs |
+| `scheduler-runner` | Triggers Cloud Workflows on schedule |
+
+**BigQuery dataset access** is managed by `infra/setup.sh` (legacy format). Terraform manages the datasets themselves but not the access entries, due to provider limitations with `google_bigquery_dataset_access` import.
+
+**Terraform state** is local. Before team collaboration or CI/CD for infrastructure, migrate to a GCS remote backend.
 
 ## Agent Registry
 
@@ -96,7 +166,7 @@ The `infra/agent_registry/` package tracks every change to agent and skill defin
 
 - **Never use GitHub Actions as a pipeline scheduler.** GitHub Actions is for CI/CD only (lint, test, docker build+push).
 - **Never use static credentials or exported service account keys.** Always use Workload Identity Federation or service account impersonation.
-- **All infrastructure changes must be codified** in `infra/` — no manual console changes.
+- **All infrastructure changes must go through Terraform** in `infra/terraform/` — no manual console changes or ad-hoc gcloud commands. Run `terraform plan` before `terraform apply`.
 - **All Claude Code-generated code must go through a GitHub PR** before merging to main. Human review is the mandatory checkpoint.
 - **BigQuery cost controls:** always use column pruning, table partitioning, and `maximum_bytes_billed` limits.
 - **This repository is public.** Every file committed here is publicly visible. Never include real credentials, project IDs, account numbers, or internal URLs in any file. Always use placeholder values (e.g. `YOUR_PROJECT_ID`) or environment variable references (`${{ secrets.X }}`, `os.getenv("X")`). Secrets belong in `.env` (gitignored) or GitHub Actions secrets — never in code.
