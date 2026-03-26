@@ -20,12 +20,13 @@ The pipeline uses per-source Cloud Run Jobs orchestrated by Cloud Workflows, wit
 
 Key architecture decisions:
 - One Docker image per source (independent versioning and dependencies per extractor)
-- One Cloud Run Job per source
-- One Cloud Scheduler trigger per job
+- 5 Cloud Run Jobs per source (1 extraction + 4 dbt stages, auto-generated via locals.tf)
+- One Cloud Scheduler trigger per source pipeline
 - Cloud Workflows for orchestration and dependency management
-- A shared service account with least-privilege IAM
+- 5 specialized service accounts with least-privilege IAM (extraction-runner, dbt-runner, github-actions-ci, workflow-runner, scheduler-runner)
 - Artifact Registry as the Docker image store
 - Secret Manager for credentials (not env vars)
+- Workflow YAML files referenced via `file()`, not generated inline
 
 ---
 
@@ -153,47 +154,59 @@ sources = {
 
 ## 6. IAM (`iam.tf`)
 
-A single shared service account for all extraction jobs with least-privilege roles.
+Five specialized service accounts with least-privilege roles, plus Workload Identity Federation for GitHub Actions CI.
+
+| Service Account | Purpose | Key Roles |
+|---|---|---|
+| `extraction-runner` | Runs extraction Cloud Run Jobs | `bigquery.jobUser`, WRITER on `raw` dataset |
+| `dbt-runner` | Runs dbt Cloud Run Jobs | `bigquery.jobUser`, READER on `raw`, WRITER on `staging`/`warehouses`/`marts` |
+| `github-actions-ci` | Pushes Docker images from GitHub Actions | `artifactregistry.writer` (via WIF, no keys) |
+| `workflow-runner` | Executes Cloud Workflows | `run.invoker`, `run.viewer` |
+| `scheduler-runner` | Triggers workflows on schedule | `workflows.invoker` |
 
 ```hcl
-resource "google_service_account" "extractor" {
-  account_id   = "data-extractor"
-  display_name = "Data Extractor Service Account"
+resource "google_service_account" "extraction_runner" {
+  account_id   = "extraction-runner"
+  display_name = "Extraction Job Runner"
 }
 
-resource "google_project_iam_member" "scheduler_invoker" {
-  project = var.project_id
-  role    = "roles/run.invoker"
-  member  = "serviceAccount:${google_service_account.extractor.email}"
+resource "google_service_account" "dbt_runner" {
+  account_id   = "dbt-runner"
+  display_name = "dbt Runner"
 }
 
-resource "google_project_iam_member" "secret_accessor" {
-  project = var.project_id
-  role    = "roles/secretmanager.secretAccessor"
-  member  = "serviceAccount:${google_service_account.extractor.email}"
+resource "google_service_account" "github_actions_ci" {
+  account_id   = "github-actions-ci"
+  display_name = "GitHub Actions CI"
 }
 
-resource "google_project_iam_member" "workflows_invoker" {
-  project = var.project_id
-  role    = "roles/run.invoker"
-  member  = "serviceAccount:${google_service_account.extractor.email}"
+resource "google_service_account" "workflow_runner" {
+  account_id   = "workflow-runner"
+  display_name = "Cloud Workflows Runner"
+}
+
+resource "google_service_account" "scheduler_runner" {
+  account_id   = "scheduler-runner"
+  display_name = "Cloud Scheduler Runner"
 }
 ```
+
+WIF is configured via `google_iam_workload_identity_pool` and `google_iam_workload_identity_pool_provider` to allow GitHub Actions keyless auth.
 
 ---
 
 ## 7. Artifact Registry (`artifact_registry.tf`)
 
 ```hcl
-resource "google_artifact_registry_repository" "extractor" {
+resource "google_artifact_registry_repository" "extraction" {
   location      = var.region
-  repository_id = "data-extractors"
+  repository_id = "extraction"
   format        = "DOCKER"
-  description   = "Docker images for data extraction jobs"
+  description   = "Extraction job container images"
 }
 ```
 
-Image naming convention: `<region>-docker.pkg.dev/<project>/data-extractors/<source_name>:<tag>`
+Image naming convention: `<region>-docker.pkg.dev/<project>/extraction/<source_name>:<tag>`
 
 ---
 
