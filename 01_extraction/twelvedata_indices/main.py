@@ -6,8 +6,8 @@ from google.cloud import bigquery
 
 load_dotenv()
 
-# S&P 500 proxy (IVV ETF), Nasdaq Composite, Dow Jones proxy (DIA ETF)
-SYMBOLS = ["IVV", "COMP", "DIA"]
+# S&P 500 proxy (IVV ETF), Nasdaq Composite (ONEQ ETF), Dow Jones proxy (DIA ETF)
+SYMBOLS = ["IVV", "ONEQ", "DIA"]
 INTERVAL = "1day"
 BASE_URL = "https://api.twelvedata.com"
 BQ_PROJECT = os.getenv("BQ_PROJECT_EXTRACTION")
