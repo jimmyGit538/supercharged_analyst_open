@@ -16,7 +16,7 @@ sources:
           - name: date
             description: "Trading date."
           - name: symbol
-            description: "Ticker symbol (e.g. IVV, COMP, DIA)."
+            description: "Ticker symbol (e.g. IVV, ONEQ, DIA)."
           - name: open
             description: "Opening price."
           - name: high
@@ -27,5 +27,28 @@ sources:
             description: "Closing price."
           - name: volume
             description: "Trading volume."
+          - name: extracted_at
+            description: "UTC timestamp when the row was written to BigQuery."
+      - name: twelvedata_symbols_metadata
+        description: "Reference metadata for tracked symbols — name, type, exchange, currency. Full-refresh on every extraction run."
+        config:
+          loaded_at_field: extracted_at
+        columns:
+          - name: symbol
+            description: "Uppercase ticker symbol."
+          - name: name
+            description: "Full instrument name."
+          - name: instrument_type
+            description: "Instrument type from Twelvedata (e.g. ETF, Common Stock)."
+          - name: currency
+            description: "Currency of the primary US listing."
+          - name: exchange
+            description: "Primary US exchange."
+          - name: mic_code
+            description: "MIC code of the primary exchange."
+          - name: country
+            description: "Country of the primary listing (United States)."
+          - name: figi_code
+            description: "FIGI identifier."
           - name: extracted_at
             description: "UTC timestamp when the row was written to BigQuery."

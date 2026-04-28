@@ -6,10 +6,9 @@
 }}
 
 select
-    index_ticker,
-    index_name,
-    asset_class,
-    currency,
-    cast(inception_date as date) as inception_date
+    lower(symbol)    as index_ticker,
+    name             as index_name,
+    instrument_type  as asset_class,
+    currency
 
-from {{ ref('indices_metadata') }}
+from {{ source('raw', 'twelvedata_symbols_metadata') }}

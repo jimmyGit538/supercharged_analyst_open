@@ -20,6 +20,8 @@ if not TWELVEDATA_API_KEY:
 if not BQ_PROJECT:
     raise EnvironmentError("BQ_PROJECT_EXTRACTION is not set")
 
+BQ_METADATA_TABLE = f"{BQ_PROJECT}.{BQ_DATASET}.twelvedata_symbols_metadata"
+
 SCHEMA = [
     bigquery.SchemaField("date", "DATE", mode="REQUIRED"),
     bigquery.SchemaField("symbol", "STRING", mode="REQUIRED"),
@@ -28,6 +30,18 @@ SCHEMA = [
     bigquery.SchemaField("low", "FLOAT64"),
     bigquery.SchemaField("close", "FLOAT64"),
     bigquery.SchemaField("volume", "INT64"),
+    bigquery.SchemaField("extracted_at", "TIMESTAMP", mode="REQUIRED"),
+]
+
+METADATA_SCHEMA = [
+    bigquery.SchemaField("symbol", "STRING", mode="REQUIRED"),
+    bigquery.SchemaField("name", "STRING"),
+    bigquery.SchemaField("instrument_type", "STRING"),
+    bigquery.SchemaField("currency", "STRING"),
+    bigquery.SchemaField("exchange", "STRING"),
+    bigquery.SchemaField("mic_code", "STRING"),
+    bigquery.SchemaField("country", "STRING"),
+    bigquery.SchemaField("figi_code", "STRING"),
     bigquery.SchemaField("extracted_at", "TIMESTAMP", mode="REQUIRED"),
 ]
 
@@ -50,7 +64,8 @@ def get_watermark(client: bigquery.Client, symbol: str) -> str | None:
         return None  # table doesn't exist yet — full load
 
 
-def extract(symbol: str, start_date: str | None) -> list[dict]:
+def extract(symbol: str, start_date: str | None) -> tuple[list[dict], str | None]:
+    """Return (values, instrument_type). instrument_type comes from the meta block."""
     params = {
         "symbol": symbol,
         "interval": INTERVAL,
@@ -70,12 +85,46 @@ def extract(symbol: str, start_date: str | None) -> list[dict]:
         msg = data.get("message", "")
         if "No data is available" in msg:
             print(f"[extract] {symbol}: no new data available — non-trading period.")
-            return []
+            return [], data.get("meta", {}).get("type")
         raise RuntimeError(f"Twelvedata API error ({symbol}): {msg}")
 
     values = data.get("values", [])
-    print(f"[extract] {symbol}: fetched {len(values)} rows")
-    return values
+    instrument_type = data.get("meta", {}).get("type")
+    print(f"[extract] {symbol}: fetched {len(values)} rows (type={instrument_type})")
+    return values, instrument_type
+
+
+def extract_metadata(symbol: str, instrument_type: str | None) -> dict | None:
+    """Fetch reference metadata for a symbol from /etf or /stocks, US primary listing."""
+    extracted_at = datetime.now(timezone.utc).isoformat()
+
+    endpoint_types = {"/etf": "ETF", "/stocks": "Common Stock"}
+    for endpoint, default_type in endpoint_types.items():
+        response = requests.get(
+            f"{BASE_URL}{endpoint}",
+            params={"symbol": symbol, "apikey": TWELVEDATA_API_KEY},
+            timeout=30,
+        )
+        response.raise_for_status()
+        data = response.json().get("data", [])
+        us_listings = [r for r in data if r.get("country") == "United States"]
+        if us_listings:
+            row = us_listings[0]
+            print(f"[metadata] {symbol}: found via {endpoint}")
+            return {
+                "symbol": symbol,
+                "name": row.get("name"),
+                "instrument_type": instrument_type or default_type,
+                "currency": row.get("currency"),
+                "exchange": row.get("exchange"),
+                "mic_code": row.get("mic_code"),
+                "country": row.get("country"),
+                "figi_code": row.get("figi_code"),
+                "extracted_at": extracted_at,
+            }
+
+    print(f"[metadata] {symbol}: no US listing found in /etf or /stocks")
+    return None
 
 
 def transform(symbol: str, values: list[dict]) -> list[dict]:
@@ -109,24 +158,42 @@ def load(client: bigquery.Client, records: list[dict]) -> None:
     print(f"[load] Appended {len(records)} rows into {BQ_TABLE}")
 
 
+def load_metadata(client: bigquery.Client, records: list[dict]) -> None:
+    if not records:
+        print("[load_metadata] No metadata records to load.")
+        return
+
+    job_config = bigquery.LoadJobConfig(
+        schema=METADATA_SCHEMA,
+        write_disposition="WRITE_TRUNCATE",
+    )
+    job = client.load_table_from_json(records, BQ_METADATA_TABLE, job_config=job_config)
+    job.result()
+    print(f"[load_metadata] Wrote {len(records)} rows into {BQ_METADATA_TABLE}")
+
+
 def main():
     client = bigquery.Client(project=BQ_PROJECT)
     all_records = []
+    metadata_records = []
 
     for symbol in SYMBOLS:
         watermark = get_watermark(client, symbol)
         print(f"[watermark] {symbol}: last loaded date = {watermark or 'none — full load'}")
 
-        values = extract(symbol, start_date=watermark)
-        if not values:
-            continue
+        values, instrument_type = extract(symbol, start_date=watermark)
+        if values:
+            records = transform(symbol, values)
+            all_records.extend(records)
+            print(f"[transform] {symbol}: latest date = {records[0]['date']}")
 
-        records = transform(symbol, values)
-        all_records.extend(records)
-        print(f"[transform] {symbol}: latest date = {records[0]['date']}")
+        meta = extract_metadata(symbol, instrument_type)
+        if meta:
+            metadata_records.append(meta)
 
     load(client, all_records)
-    print(f"[main] Done. Total rows loaded: {len(all_records)}")
+    load_metadata(client, metadata_records)
+    print(f"[main] Done. Price rows loaded: {len(all_records)}, metadata rows: {len(metadata_records)}")
 
 
 if __name__ == "__main__":

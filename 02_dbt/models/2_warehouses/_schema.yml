@@ -58,7 +58,7 @@ models:
         description: "Timestamp when this row was written to the warehouse by dbt."
 
   - name: wh_indices_metadata
-    description: "Dimension table. One row per index. Sourced from the indices_metadata seed CSV."
+    description: "Dimension table. One row per tracked symbol. Sourced from raw.twelvedata_symbols_metadata, populated by the Twelvedata extraction job."
     columns:
       - name: index_ticker
         description: "Lowercase ticker symbol. Joins to wh_indices_daily and wh_indices_returns."
@@ -68,8 +68,6 @@ models:
       - name: index_name
         description: "Full descriptive name of the index or ETF."
       - name: asset_class
-        description: "Broad asset class (e.g. equity, fixed income, commodity)."
+        description: "Instrument type from Twelvedata (e.g. ETF, Common Stock)."
       - name: currency
-        description: "Currency in which prices are denominated."
-      - name: inception_date
-        description: "Date the index or ETF was launched."
+        description: "Currency of the primary US listing."
