@@ -36,7 +36,6 @@ joined as (
         m.index_name,
         m.asset_class,
         m.currency,
-        m.inception_date,
         d.date,
         d.open,
         d.high,

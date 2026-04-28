@@ -29,8 +29,6 @@ models:
         description: "Broad asset class (e.g. equity). Use as a filter dimension in Looker."
       - name: currency
         description: "Currency in which prices are denominated."
-      - name: inception_date
-        description: "Date the index or ETF was launched."
       - name: date
         description: "Trading date. Primary time dimension."
         tests:
