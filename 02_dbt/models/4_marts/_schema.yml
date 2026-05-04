@@ -62,6 +62,117 @@ models:
       - name: _loaded_at
         description: "Timestamp when this row was written to the mart by dbt."
 
+  - name: fct_cmc_coin_daily
+    description: >
+      Primary Looker Studio coin fact table. One row per (date, coin_id).
+      Fully denormalized: price, volume, market cap, all return metrics, and coin/category
+      attributes in a single table so dashboards require no additional joins.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [date, coin_id]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "price_usd > 0"
+    columns:
+      - name: date
+        description: "Quote date. Primary time dimension."
+        tests:
+          - not_null
+      - name: coin_id
+        description: "CoinMarketCap coin identifier."
+        tests:
+          - not_null
+      - name: symbol
+        description: "Coin ticker symbol (e.g. BTC, ETH)."
+        tests:
+          - not_null
+      - name: name
+        description: "Full coin name. Use as chart label in Looker."
+        tests:
+          - not_null
+      - name: slug
+        description: "URL slug for the coin on coinmarketcap.com."
+      - name: category_id
+        description: "CoinMarketCap category identifier. Use as a filter dimension."
+      - name: category_name
+        description: "Human-readable category name (e.g. DeFi, Layer 1). Use as a filter dimension."
+      - name: coin_category
+        description: "Primary category tag from CMC coin metadata (e.g. 'coin', 'token')."
+      - name: tags
+        description: "JSON-serialized array of tags assigned to the coin."
+      - name: website
+        description: "Primary website URL for the project."
+      - name: price_usd
+        description: "Closing price in USD."
+        tests:
+          - not_null
+      - name: market_cap_usd
+        description: "Market capitalisation in USD."
+      - name: volume_24h_usd
+        description: "24-hour trading volume in USD."
+      - name: daily_return
+        description: "Daily return: (price - prior_price) / prior_price. Null on first day of history."
+      - name: return_30d
+        description: "Point-in-time 30-day return: price vs price exactly 30 days ago."
+      - name: rolling_return_30d
+        description: "Arithmetic mean of daily returns over the trailing 30-day window."
+      - name: return_90d
+        description: "Point-in-time 90-day return: price vs price exactly 90 days ago."
+      - name: rolling_return_90d
+        description: "Arithmetic mean of daily returns over the trailing 90-day window."
+      - name: return_365d
+        description: "Point-in-time 365-day return: price vs price exactly 365 days ago."
+      - name: rolling_return_365d
+        description: "Arithmetic mean of daily returns over the trailing 365-day window."
+      - name: _loaded_at
+        description: "Timestamp when this row was written to the mart by dbt."
+
+  - name: fct_cmc_category_daily
+    description: >
+      Category-level Looker Studio fact table. One row per (date, category_id).
+      Aggregates constituent coin metrics to provide category-level market size and
+      average return signals across all tracked time horizons.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [date, category_id]
+    columns:
+      - name: date
+        description: "Quote date. Primary time dimension."
+        tests:
+          - not_null
+      - name: category_id
+        description: "CoinMarketCap category identifier."
+        tests:
+          - not_null
+      - name: category_name
+        description: "Human-readable category name. Use as chart label in Looker."
+        tests:
+          - not_null
+      - name: total_market_cap_usd
+        description: "Sum of market capitalisations of all constituent coins in USD."
+      - name: total_volume_24h_usd
+        description: "Sum of 24-hour trading volumes of all constituent coins in USD."
+      - name: num_coins
+        description: "Number of distinct coins contributing to this category on this date."
+      - name: avg_daily_return
+        description: "Average daily return across constituent coins."
+      - name: avg_return_30d
+        description: "Average point-in-time 30-day return across constituent coins."
+      - name: avg_rolling_return_30d
+        description: "Average rolling 30-day return across constituent coins."
+      - name: avg_return_90d
+        description: "Average point-in-time 90-day return across constituent coins."
+      - name: avg_rolling_return_90d
+        description: "Average rolling 90-day return across constituent coins."
+      - name: avg_return_365d
+        description: "Average point-in-time 365-day return across constituent coins."
+      - name: avg_rolling_return_365d
+        description: "Average rolling 365-day return across constituent coins."
+      - name: _loaded_at
+        description: "Timestamp when this row was written to the mart by dbt."
+
   - name: fct_indices_rolling_stats
     description: >
       Rolling statistics mart. One row per (index_ticker, date).

@@ -52,3 +52,103 @@ sources:
             description: "FIGI identifier."
           - name: extracted_at
             description: "UTC timestamp when the row was written to BigQuery."
+      - name: coinmarketcap_categories
+        description: "Crypto category metadata loaded by the CoinMarketCap extraction job. Full-refresh on every run."
+        config:
+          loaded_at_field: extracted_at
+          freshness:
+            warn_after: {count: 1, period: day}
+            error_after: {count: 3, period: day}
+        columns:
+          - name: id
+            description: "CoinMarketCap category identifier (e.g. 'defi', 'layer-1')."
+          - name: name
+            description: "Human-readable category name."
+          - name: num_tokens
+            description: "Number of tokens assigned to this category."
+          - name: market_cap_usd
+            description: "Total market capitalisation of the category in USD."
+          - name: market_cap_change
+            description: "24-hour change in market capitalisation (decimal fraction)."
+          - name: volume_usd
+            description: "24-hour trading volume of the category in USD."
+          - name: volume_change
+            description: "24-hour change in trading volume (decimal fraction)."
+          - name: last_updated
+            description: "Timestamp of the last CMC update for this category (string from API)."
+          - name: extracted_at
+            description: "UTC timestamp when the row was written to BigQuery."
+      - name: coinmarketcap_category_coins
+        description: "Bridge table mapping crypto categories to their constituent coins. Full-refresh on every run."
+        config:
+          loaded_at_field: extracted_at
+        columns:
+          - name: category_id
+            description: "CoinMarketCap category identifier."
+          - name: category_name
+            description: "Human-readable category name."
+          - name: coin_id
+            description: "CoinMarketCap coin identifier (integer)."
+          - name: coin_symbol
+            description: "Coin ticker symbol (e.g. BTC, ETH)."
+          - name: coin_name
+            description: "Full coin name."
+          - name: coin_slug
+            description: "URL slug for the coin on coinmarketcap.com."
+          - name: cmc_rank
+            description: "CoinMarketCap rank of the coin at extraction time."
+          - name: extracted_at
+            description: "UTC timestamp when the row was written to BigQuery."
+      - name: coinmarketcap_coin_metadata
+        description: "Coin attribute metadata (description, tags, website). Full-refresh on every run."
+        config:
+          loaded_at_field: extracted_at
+        columns:
+          - name: coin_id
+            description: "CoinMarketCap coin identifier (integer)."
+          - name: symbol
+            description: "Coin ticker symbol (e.g. BTC, ETH)."
+          - name: name
+            description: "Full coin name."
+          - name: slug
+            description: "URL slug for the coin on coinmarketcap.com."
+          - name: description
+            description: "Long-form description of the coin from CMC."
+          - name: category
+            description: "Primary category tag from CMC (e.g. 'coin', 'token')."
+          - name: tags
+            description: "JSON-serialized array of tags assigned to the coin."
+          - name: website
+            description: "Primary website URL for the project."
+          - name: extracted_at
+            description: "UTC timestamp when the row was written to BigQuery."
+      - name: coinmarketcap_quotes_daily
+        description: "Daily price, volume, and market cap per coin. Incrementally appended by the extraction job (watermark per coin_id)."
+        config:
+          loaded_at_field: extracted_at
+          freshness:
+            warn_after: {count: 1, period: day}
+            error_after: {count: 3, period: day}
+        columns:
+          - name: date
+            description: "Quote date."
+          - name: coin_id
+            description: "CoinMarketCap coin identifier (integer)."
+          - name: symbol
+            description: "Coin ticker symbol."
+          - name: name
+            description: "Full coin name."
+          - name: price_usd
+            description: "Closing price in USD."
+          - name: volume_24h_usd
+            description: "24-hour trading volume in USD."
+          - name: market_cap_usd
+            description: "Market capitalisation in USD."
+          - name: percent_change_1h
+            description: "Price percent change over the prior 1 hour."
+          - name: percent_change_24h
+            description: "Price percent change over the prior 24 hours."
+          - name: percent_change_7d
+            description: "Price percent change over the prior 7 days."
+          - name: extracted_at
+            description: "UTC timestamp when the row was written to BigQuery."
