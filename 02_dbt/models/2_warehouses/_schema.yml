@@ -71,3 +71,167 @@ models:
         description: "Instrument type from Twelvedata (e.g. ETF, Common Stock)."
       - name: currency
         description: "Currency of the primary US listing."
+
+  - name: wh_cmc_categories
+    description: "Dimension table. One row per crypto category. Full-refresh on every dbt run."
+    columns:
+      - name: id
+        description: "CoinMarketCap category identifier."
+        tests:
+          - not_null
+          - unique
+      - name: name
+        description: "Human-readable category name."
+        tests:
+          - not_null
+      - name: num_tokens
+        description: "Number of tokens assigned to this category."
+      - name: market_cap_usd
+        description: "Total market capitalisation of the category in USD."
+      - name: market_cap_change
+        description: "24-hour change in market capitalisation (decimal fraction)."
+      - name: volume_usd
+        description: "24-hour trading volume of the category in USD."
+      - name: volume_change
+        description: "24-hour change in trading volume (decimal fraction)."
+      - name: last_updated
+        description: "Timestamp of the last CMC update for this category (string from API)."
+      - name: _loaded_at
+        description: "Timestamp when this row was written to the warehouse by dbt."
+
+  - name: wh_cmc_coin_metadata
+    description: "Dimension table. One row per coin. Full-refresh on every dbt run."
+    columns:
+      - name: coin_id
+        description: "CoinMarketCap coin identifier."
+        tests:
+          - not_null
+          - unique
+      - name: symbol
+        description: "Coin ticker symbol."
+        tests:
+          - not_null
+      - name: name
+        description: "Full coin name."
+        tests:
+          - not_null
+      - name: slug
+        description: "URL slug for the coin on coinmarketcap.com."
+      - name: description
+        description: "Long-form description of the coin from CMC."
+      - name: category
+        description: "Primary category tag from CMC."
+      - name: tags
+        description: "JSON-serialized array of tags assigned to the coin."
+      - name: website
+        description: "Primary website URL for the project."
+      - name: _loaded_at
+        description: "Timestamp when this row was written to the warehouse by dbt."
+
+  - name: wh_cmc_category_coins
+    description: "Bridge table. One row per (category_id, coin_id) mapping. Full-refresh on every dbt run."
+    columns:
+      - name: category_id
+        description: "CoinMarketCap category identifier."
+        tests:
+          - not_null
+      - name: category_name
+        description: "Human-readable category name."
+      - name: coin_id
+        description: "CoinMarketCap coin identifier."
+        tests:
+          - not_null
+      - name: coin_symbol
+        description: "Coin ticker symbol."
+      - name: coin_name
+        description: "Full coin name."
+      - name: coin_slug
+        description: "URL slug for the coin on coinmarketcap.com."
+      - name: cmc_rank
+        description: "CoinMarketCap rank of the coin at extraction time."
+      - name: _loaded_at
+        description: "Timestamp when this row was written to the warehouse by dbt."
+
+  - name: wh_cmc_quotes_daily
+    description: "Core fact table. One row per (date, coin_id). Incremental — appends new trading days only."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [date, coin_id]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "price_usd > 0"
+    columns:
+      - name: date
+        description: "Quote date."
+        tests:
+          - not_null
+      - name: coin_id
+        description: "CoinMarketCap coin identifier."
+        tests:
+          - not_null
+      - name: symbol
+        description: "Coin ticker symbol."
+      - name: name
+        description: "Full coin name."
+      - name: price_usd
+        description: "Closing price in USD."
+        tests:
+          - not_null
+      - name: volume_24h_usd
+        description: "24-hour trading volume in USD."
+      - name: market_cap_usd
+        description: "Market capitalisation in USD."
+      - name: percent_change_1h
+        description: "Price percent change over the prior 1 hour."
+      - name: percent_change_24h
+        description: "Price percent change over the prior 24 hours."
+      - name: percent_change_7d
+        description: "Price percent change over the prior 7 days."
+      - name: _loaded_at
+        description: "Timestamp when this row was written to the warehouse by dbt."
+
+  - name: wh_cmc_returns
+    description: >
+      Return metrics per coin per day. One row per (date, coin_id). Incremental.
+      Provides daily return, point-in-time returns (30d/90d/365d), and rolling-window
+      average returns (30d/90d/365d) for use in coin and category dashboards.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [date, coin_id]
+    columns:
+      - name: date
+        description: "Quote date."
+        tests:
+          - not_null
+      - name: coin_id
+        description: "CoinMarketCap coin identifier."
+        tests:
+          - not_null
+      - name: symbol
+        description: "Coin ticker symbol."
+      - name: name
+        description: "Full coin name."
+      - name: price_usd
+        description: "Closing price in USD."
+      - name: market_cap_usd
+        description: "Market capitalisation in USD."
+      - name: volume_24h_usd
+        description: "24-hour trading volume in USD."
+      - name: daily_return
+        description: "Daily return: (price - prior_price) / prior_price. Null on first day of history."
+      - name: return_30d
+        description: "Point-in-time 30-day return: price vs price 30 days ago. Null until 30 days of history exist."
+      - name: rolling_return_30d
+        description: "Arithmetic mean of daily returns over the trailing 30-day window. A smoothed trend signal."
+      - name: return_90d
+        description: "Point-in-time 90-day return: price vs price 90 days ago."
+      - name: rolling_return_90d
+        description: "Arithmetic mean of daily returns over the trailing 90-day window."
+      - name: return_365d
+        description: "Point-in-time 365-day return: price vs price 365 days ago."
+      - name: rolling_return_365d
+        description: "Arithmetic mean of daily returns over the trailing 365-day window."
+      - name: _loaded_at
+        description: "Timestamp when this row was written to the warehouse by dbt."
