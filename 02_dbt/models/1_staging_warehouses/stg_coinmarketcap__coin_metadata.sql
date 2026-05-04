@@ -14,14 +14,14 @@ with source as (
 cleaned as (
 
     select
-        cast(coin_id as int64)       as coin_id,
-        cast(symbol as string)       as symbol,
-        cast(name as string)         as name,
-        cast(slug as string)         as slug,
-        cast(description as string)  as description,
-        cast(category as string)     as category,
-        cast(tags as string)         as tags,
-        cast(website as string)      as website,
+        cast(coin_id as int64) as coin_id,
+        cast(symbol as string) as symbol,
+        cast(name as string) as name,  -- noqa: RF04
+        cast(slug as string) as slug,
+        cast(description as string) as description,  -- noqa: RF04
+        cast(category as string) as category,  -- noqa: RF04
+        cast(tags as string) as tags,
+        cast(website as string) as website,
         extracted_at
 
     from source

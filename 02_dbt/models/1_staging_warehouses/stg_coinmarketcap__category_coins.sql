@@ -14,13 +14,13 @@ with source as (
 cleaned as (
 
     select
-        cast(category_id as string)   as category_id,
+        cast(category_id as string) as category_id,
         cast(category_name as string) as category_name,
-        cast(coin_id as int64)        as coin_id,
-        cast(coin_symbol as string)   as coin_symbol,
-        cast(coin_name as string)     as coin_name,
-        cast(coin_slug as string)     as coin_slug,
-        cast(cmc_rank as int64)       as cmc_rank,
+        cast(coin_id as int64) as coin_id,
+        cast(coin_symbol as string) as coin_symbol,
+        cast(coin_name as string) as coin_name,
+        cast(coin_slug as string) as coin_slug,
+        cast(cmc_rank as int64) as cmc_rank,
         extracted_at
 
     from source

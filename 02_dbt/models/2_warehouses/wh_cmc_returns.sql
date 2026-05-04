@@ -17,7 +17,7 @@ with quotes as (
     select * from {{ ref('wh_cmc_quotes_daily') }}
 
     {% if is_incremental() %}
-    -- Pull back 366 days so LAG windows have enough history for the first new row
+    -- Pull back 366 days so LAG windows have enough history
         where date >= (
             select date_sub(max(date), interval 366 day)  -- noqa: RF02
             from {{ this }}
@@ -39,21 +39,33 @@ with_returns as (
 
         -- Daily return: (today - yesterday) / yesterday
         safe_divide(
-            price_usd - lag(price_usd, 1) over (partition by coin_id order by date),
-            lag(price_usd, 1) over (partition by coin_id order by date)
+            price_usd - lag(price_usd, 1) over (
+                partition by coin_id order by date
+            ),
+            lag(price_usd, 1) over (
+                partition by coin_id order by date
+            )
         ) as daily_return,
 
         -- Point-in-time 30-day return: today vs 30 days ago
         safe_divide(
-            price_usd - lag(price_usd, 30) over (partition by coin_id order by date),
-            lag(price_usd, 30) over (partition by coin_id order by date)
+            price_usd - lag(price_usd, 30) over (
+                partition by coin_id order by date
+            ),
+            lag(price_usd, 30) over (
+                partition by coin_id order by date
+            )
         ) as return_30d,
 
-        -- Rolling 30-day return: arithmetic mean of daily returns over the trailing 30 days
+        -- Rolling 30-day: arithmetic mean of daily returns
         avg(
             safe_divide(
-                price_usd - lag(price_usd, 1) over (partition by coin_id order by date),
-                lag(price_usd, 1) over (partition by coin_id order by date)
+                price_usd - lag(price_usd, 1) over (
+                    partition by coin_id order by date
+                ),
+                lag(price_usd, 1) over (
+                    partition by coin_id order by date
+                )
             )
         ) over (
             partition by coin_id
@@ -63,15 +75,23 @@ with_returns as (
 
         -- Point-in-time 90-day return
         safe_divide(
-            price_usd - lag(price_usd, 90) over (partition by coin_id order by date),
-            lag(price_usd, 90) over (partition by coin_id order by date)
+            price_usd - lag(price_usd, 90) over (
+                partition by coin_id order by date
+            ),
+            lag(price_usd, 90) over (
+                partition by coin_id order by date
+            )
         ) as return_90d,
 
-        -- Rolling 90-day return
+        -- Rolling 90-day: arithmetic mean of daily returns
         avg(
             safe_divide(
-                price_usd - lag(price_usd, 1) over (partition by coin_id order by date),
-                lag(price_usd, 1) over (partition by coin_id order by date)
+                price_usd - lag(price_usd, 1) over (
+                    partition by coin_id order by date
+                ),
+                lag(price_usd, 1) over (
+                    partition by coin_id order by date
+                )
             )
         ) over (
             partition by coin_id
@@ -81,15 +101,23 @@ with_returns as (
 
         -- Point-in-time 365-day return
         safe_divide(
-            price_usd - lag(price_usd, 365) over (partition by coin_id order by date),
-            lag(price_usd, 365) over (partition by coin_id order by date)
+            price_usd - lag(price_usd, 365) over (
+                partition by coin_id order by date
+            ),
+            lag(price_usd, 365) over (
+                partition by coin_id order by date
+            )
         ) as return_365d,
 
-        -- Rolling 365-day return
+        -- Rolling 365-day: arithmetic mean of daily returns
         avg(
             safe_divide(
-                price_usd - lag(price_usd, 1) over (partition by coin_id order by date),
-                lag(price_usd, 1) over (partition by coin_id order by date)
+                price_usd - lag(price_usd, 1) over (
+                    partition by coin_id order by date
+                ),
+                lag(price_usd, 1) over (
+                    partition by coin_id order by date
+                )
             )
         ) over (
             partition by coin_id

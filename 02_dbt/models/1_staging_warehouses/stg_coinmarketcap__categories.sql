@@ -14,12 +14,12 @@ with source as (
 cleaned as (
 
     select
-        cast(id as string)           as id,
-        cast(name as string)         as name,
-        cast(num_tokens as int64)    as num_tokens,
+        cast(id as string) as id,
+        cast(name as string) as name,  -- noqa: RF04
+        cast(num_tokens as int64) as num_tokens,
         cast(market_cap_usd as numeric) as market_cap_usd,
         cast(market_cap_change as numeric) as market_cap_change,
-        cast(volume_usd as numeric)  as volume_usd,
+        cast(volume_usd as numeric) as volume_usd,
         cast(volume_change as numeric) as volume_change,
         cast(last_updated as string) as last_updated,
         extracted_at

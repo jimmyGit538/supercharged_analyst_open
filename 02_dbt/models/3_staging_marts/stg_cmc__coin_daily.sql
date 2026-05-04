@@ -41,7 +41,7 @@ joined as (
         r.return_365d,
         r.rolling_return_365d,
         m.slug,
-        m.category        as coin_category,
+        m.category as coin_category,
         m.tags,
         m.website,
         cc.category_id,
