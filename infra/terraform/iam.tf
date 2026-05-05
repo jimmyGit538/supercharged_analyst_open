@@ -63,6 +63,18 @@ resource "google_project_iam_member" "scheduler_runner_wf_invoker" {
   member  = "serviceAccount:${google_service_account.scheduler_runner.email}"
 }
 
+# ── Secret Manager access ─────────────────────────────────────────────────────
+
+# Grant extraction-runner accessor on every secret referenced across all sources
+resource "google_secret_manager_secret_iam_member" "extraction_runner_secret_accessor" {
+  for_each  = toset(flatten([for s in var.sources : keys(s.secrets)]))
+  secret_id = each.value
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.extraction_runner.email}"
+
+  depends_on = [google_project_service.apis]
+}
+
 # ── SA-level IAM bindings ────────────────────────────────────────────────────
 
 # Allow Cloud Run to use the extraction SA
