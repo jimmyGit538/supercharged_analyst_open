@@ -1,0 +1,146 @@
+version: 2
+
+models:
+  - name: stg_cmc__coin_daily
+    description: "Denormalized view combining wh_cmc_returns, wh_cmc_coin_metadata, and wh_cmc_category_coins. One row per (date, coin_id)."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [date, coin_id]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "price_usd > 0"
+    columns:
+      - name: date
+        description: "Quote date."
+        tests:
+          - not_null
+      - name: coin_id
+        description: "CoinMarketCap coin identifier."
+        tests:
+          - not_null
+      - name: symbol
+        description: "Coin ticker symbol."
+      - name: name
+        description: "Full coin name."
+      - name: price_usd
+        description: "Closing price in USD."
+        tests:
+          - not_null
+      - name: market_cap_usd
+        description: "Market capitalisation in USD."
+      - name: volume_24h_usd
+        description: "24-hour trading volume in USD."
+      - name: daily_return
+        description: "Daily return. Null on first day of history."
+      - name: return_30d
+        description: "Point-in-time 30-day return."
+      - name: rolling_return_30d
+        description: "Trailing 30-day average daily return."
+      - name: return_90d
+        description: "Point-in-time 90-day return."
+      - name: rolling_return_90d
+        description: "Trailing 90-day average daily return."
+      - name: return_365d
+        description: "Point-in-time 365-day return."
+      - name: rolling_return_365d
+        description: "Trailing 365-day average daily return."
+      - name: slug
+        description: "URL slug for the coin on coinmarketcap.com."
+      - name: coin_category
+        description: "Primary category tag from CMC coin metadata."
+      - name: tags
+        description: "JSON-serialized array of tags."
+      - name: website
+        description: "Primary website URL."
+      - name: category_id
+        description: "CoinMarketCap category identifier. Null if coin has no category mapping."
+      - name: category_name
+        description: "Human-readable category name."
+
+  - name: stg_cmc__category_daily
+    description: "Category-level aggregation view. One row per (date, category_id). Aggregates constituent coin metrics."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [date, category_id]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "total_market_cap_usd >= 0 or total_market_cap_usd is null"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "num_coins >= 1"
+    columns:
+      - name: date
+        description: "Quote date."
+        tests:
+          - not_null
+      - name: category_id
+        description: "CoinMarketCap category identifier."
+        tests:
+          - not_null
+      - name: category_name
+        description: "Human-readable category name."
+        tests:
+          - not_null
+      - name: total_market_cap_usd
+        description: "Sum of market caps of constituent coins in USD."
+      - name: total_volume_24h_usd
+        description: "Sum of 24-hour volumes of constituent coins in USD."
+      - name: num_coins
+        description: "Number of distinct coins contributing to this category on this date."
+      - name: avg_daily_return
+        description: "Average daily return across constituent coins."
+      - name: avg_return_30d
+        description: "Average 30-day return across constituent coins."
+      - name: avg_rolling_return_30d
+        description: "Average rolling 30-day return across constituent coins."
+      - name: avg_return_90d
+        description: "Average 90-day return across constituent coins."
+      - name: avg_rolling_return_90d
+        description: "Average rolling 90-day return across constituent coins."
+      - name: avg_return_365d
+        description: "Average 365-day return across constituent coins."
+      - name: avg_rolling_return_365d
+        description: "Average rolling 365-day return across constituent coins."
+
+  - name: stg_indices__rolling_stats
+    description: "Rolling statistics view for equity indices. One row per (index_ticker, date). Provides MAs, volatility, and 52-week high."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [index_ticker, date]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "vol_20d_annualized >= 0 or vol_20d_annualized is null"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "ma_20d > 0 or ma_20d is null"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "close > 0"
+    columns:
+      - name: index_ticker
+        description: "Lowercase ticker symbol."
+        tests:
+          - not_null
+      - name: date
+        description: "Trading date."
+        tests:
+          - not_null
+      - name: close
+        description: "Closing price."
+        tests:
+          - not_null
+      - name: trading_day_seq
+        description: "Sequential trading day ordinal."
+      - name: daily_return
+        description: "Daily return from wh_indices_returns."
+      - name: ma_20d
+        description: "20-day simple moving average. Null for the first 19 trading days."
+      - name: ma_50d
+        description: "50-day simple moving average. Null for the first 49 trading days."
+      - name: vol_20d_annualized
+        description: "20-day annualized realized volatility. Null for the first 19 trading days."
+      - name: rolling_max_close_252d
+        description: "Rolling 52-week high (trailing 252 trading days)."

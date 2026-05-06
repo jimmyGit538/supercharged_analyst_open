@@ -3,6 +3,25 @@ version: 2
 models:
   - name: stg_twelvedata__indices_prices
     description: "Cleaned and typed view over the raw Twelvedata indices table. Filters nulls, casts prices to NUMERIC, lowercases ticker."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [index_ticker, date]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "high >= low"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "high >= close"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "low <= close"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "close > 0"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "open > 0"
     columns:
       - name: date
         description: "Trading date."
@@ -29,6 +48,16 @@ models:
 
   - name: stg_coinmarketcap__categories
     description: "Cleaned and deduplicated view over raw CoinMarketCap categories. One row per category (latest extraction)."
+    tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "market_cap_usd >= 0 or market_cap_usd is null"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "volume_usd >= 0 or volume_usd is null"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "num_tokens >= 0 or num_tokens is null"
     columns:
       - name: id
         description: "CoinMarketCap category identifier."
@@ -56,6 +85,10 @@ models:
 
   - name: stg_coinmarketcap__category_coins
     description: "Cleaned and deduplicated bridge view mapping categories to constituent coins. One row per (category_id, coin_id)."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [category_id, coin_id]
     columns:
       - name: category_id
         description: "CoinMarketCap category identifier."
@@ -69,6 +102,8 @@ models:
           - not_null
       - name: coin_symbol
         description: "Coin ticker symbol."
+        tests:
+          - not_null
       - name: coin_name
         description: "Full coin name."
       - name: coin_slug
@@ -96,6 +131,8 @@ models:
           - not_null
       - name: slug
         description: "URL slug for the coin on coinmarketcap.com."
+        tests:
+          - not_null
       - name: description
         description: "Long-form description of the coin from CMC."
       - name: category
@@ -109,6 +146,19 @@ models:
 
   - name: stg_coinmarketcap__quotes_daily
     description: "Cleaned and deduplicated daily price view. One row per (date, coin_id). Rows with null date or non-positive price filtered out."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [date, coin_id]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "price_usd > 0"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "market_cap_usd >= 0 or market_cap_usd is null"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "volume_24h_usd >= 0 or volume_24h_usd is null"
     columns:
       - name: date
         description: "Quote date."

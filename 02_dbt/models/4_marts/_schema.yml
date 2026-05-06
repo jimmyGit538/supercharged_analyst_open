@@ -15,7 +15,16 @@ models:
             expression: "high >= low"
       - dbt_utils.expression_is_true:
           arguments:
+            expression: "high >= close"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "low <= close"
+      - dbt_utils.expression_is_true:
+          arguments:
             expression: "close > 0"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "ytd_return > -1 or ytd_return is null"
     columns:
       - name: index_ticker
         description: "Lowercase ticker symbol (e.g. ivv, comp, dia)."
