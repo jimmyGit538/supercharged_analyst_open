@@ -26,7 +26,7 @@ with quotes as (
 
 ),
 
-with_returns as (
+with_lag_returns as (
 
     select
         date,
@@ -37,89 +37,58 @@ with_returns as (
         market_cap_usd,
         volume_24h_usd,
 
-        -- Daily return: (today - yesterday) / yesterday
         safe_divide(
-            price_usd - lag(price_usd, 1) over (
-                partition by coin_id order by date
-            ),
-            lag(price_usd, 1) over (
-                partition by coin_id order by date
-            )
+            price_usd - lag(price_usd, 1) over (partition by coin_id order by date),
+            lag(price_usd, 1) over (partition by coin_id order by date)
         ) as daily_return,
 
-        -- Point-in-time 30-day return: today vs 30 days ago
         safe_divide(
-            price_usd - lag(price_usd, 30) over (
-                partition by coin_id order by date
-            ),
-            lag(price_usd, 30) over (
-                partition by coin_id order by date
-            )
+            price_usd - lag(price_usd, 30) over (partition by coin_id order by date),
+            lag(price_usd, 30) over (partition by coin_id order by date)
         ) as return_30d,
 
-        -- Rolling 30-day: arithmetic mean of daily returns
-        avg(
-            safe_divide(
-                price_usd - lag(price_usd, 1) over (
-                    partition by coin_id order by date
-                ),
-                lag(price_usd, 1) over (
-                    partition by coin_id order by date
-                )
-            )
-        ) over (
+        safe_divide(
+            price_usd - lag(price_usd, 90) over (partition by coin_id order by date),
+            lag(price_usd, 90) over (partition by coin_id order by date)
+        ) as return_90d,
+
+        safe_divide(
+            price_usd - lag(price_usd, 365) over (partition by coin_id order by date),
+            lag(price_usd, 365) over (partition by coin_id order by date)
+        ) as return_365d
+
+    from quotes
+
+),
+
+with_returns as (
+
+    select
+        date,
+        coin_id,
+        symbol,
+        name,
+        price_usd,
+        market_cap_usd,
+        volume_24h_usd,
+        daily_return,
+        return_30d,
+        return_90d,
+        return_365d,
+
+        avg(daily_return) over (
             partition by coin_id
             order by date
             rows between 29 preceding and current row
         ) as rolling_return_30d,
 
-        -- Point-in-time 90-day return
-        safe_divide(
-            price_usd - lag(price_usd, 90) over (
-                partition by coin_id order by date
-            ),
-            lag(price_usd, 90) over (
-                partition by coin_id order by date
-            )
-        ) as return_90d,
-
-        -- Rolling 90-day: arithmetic mean of daily returns
-        avg(
-            safe_divide(
-                price_usd - lag(price_usd, 1) over (
-                    partition by coin_id order by date
-                ),
-                lag(price_usd, 1) over (
-                    partition by coin_id order by date
-                )
-            )
-        ) over (
+        avg(daily_return) over (
             partition by coin_id
             order by date
             rows between 89 preceding and current row
         ) as rolling_return_90d,
 
-        -- Point-in-time 365-day return
-        safe_divide(
-            price_usd - lag(price_usd, 365) over (
-                partition by coin_id order by date
-            ),
-            lag(price_usd, 365) over (
-                partition by coin_id order by date
-            )
-        ) as return_365d,
-
-        -- Rolling 365-day: arithmetic mean of daily returns
-        avg(
-            safe_divide(
-                price_usd - lag(price_usd, 1) over (
-                    partition by coin_id order by date
-                ),
-                lag(price_usd, 1) over (
-                    partition by coin_id order by date
-                )
-            )
-        ) over (
+        avg(daily_return) over (
             partition by coin_id
             order by date
             rows between 364 preceding and current row
@@ -127,7 +96,7 @@ with_returns as (
 
         current_timestamp() as _loaded_at
 
-    from quotes
+    from with_lag_returns
 
 ),
 
