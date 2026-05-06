@@ -17,7 +17,7 @@ locals {
   # Each stage maps to a dbt command that matches create_jobs.sh exactly.
   dbt_stages = {
     "dbt-stg-warehouse" = "dbt run --profiles-dir /app --project-dir /app --target cloudrun --select 1_staging_warehouses"
-    "dbt-warehouse"     = "dbt seed --profiles-dir /app --project-dir /app --target cloudrun && dbt run --profiles-dir /app --project-dir /app --target cloudrun --select 2_warehouses"
+    "dbt-warehouse"     = "dbt run --profiles-dir /app --project-dir /app --target cloudrun --select 2_warehouses"
     "dbt-stg-marts"     = "dbt run --profiles-dir /app --project-dir /app --target cloudrun --select 3_staging_marts"
     "dbt-mart"          = "dbt run --profiles-dir /app --project-dir /app --target cloudrun --select 4_marts"
   }
