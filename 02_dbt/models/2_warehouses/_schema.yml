@@ -3,6 +3,22 @@ version: 2
 models:
   - name: wh_indices_daily
     description: "Core fact table. One row per (index_ticker, date). Incremental — appends new trading days only."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [index_ticker, date]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "close > 0"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "high >= low"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "volume >= 0 or volume is null"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "trading_day_seq >= 1"
     columns:
       - name: index_ticker
         description: "Lowercase ticker symbol."
@@ -33,6 +49,19 @@ models:
 
   - name: wh_indices_returns
     description: "Return metrics built on wh_indices_daily. One row per (index_ticker, date). Includes daily, WTD, MTD, and YTD returns."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [index_ticker, date]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "daily_return > -1 or daily_return is null"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "daily_return is null or (daily_return > -0.5 and daily_return < 2)"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "ytd_return > -1 or ytd_return is null"
     columns:
       - name: index_ticker
         description: "Lowercase ticker symbol."
@@ -67,13 +96,21 @@ models:
           - unique
       - name: index_name
         description: "Full descriptive name of the index or ETF."
+        tests:
+          - not_null
       - name: asset_class
         description: "Instrument type from Twelvedata (e.g. ETF, Common Stock)."
       - name: currency
         description: "Currency of the primary US listing."
+        tests:
+          - not_null
 
   - name: wh_cmc_categories
     description: "Dimension table. One row per crypto category. Full-refresh on every dbt run."
+    tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "market_cap_usd >= 0 or market_cap_usd is null"
     columns:
       - name: id
         description: "CoinMarketCap category identifier."
@@ -130,6 +167,10 @@ models:
 
   - name: wh_cmc_category_coins
     description: "Bridge table. One row per (category_id, coin_id) mapping. Full-refresh on every dbt run."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [category_id, coin_id]
     columns:
       - name: category_id
         description: "CoinMarketCap category identifier."
@@ -200,6 +241,9 @@ models:
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns: [date, coin_id]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "daily_return > -1 or daily_return is null"
     columns:
       - name: date
         description: "Quote date."
