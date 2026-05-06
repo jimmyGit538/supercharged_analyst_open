@@ -9,7 +9,7 @@ resource "google_cloud_run_v2_job" "jobs" {
   template {
     template {
       service_account = each.value.sa_email
-      timeout         = "600s"
+      timeout         = each.value.timeout
       max_retries     = 1
 
       containers {

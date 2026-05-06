@@ -9,6 +9,7 @@ locals {
       env_vars = src.env_vars
       secrets  = src.secrets
       args     = []
+      timeout  = src.timeout
     }
   }
 
@@ -32,6 +33,7 @@ locals {
         env_vars = { BQ_PROJECT = var.project_id }
         secrets  = {}
         args     = ["sh", "-c", cmd]
+        timeout  = "600s"
       }
     }
   ]...)
