@@ -19,6 +19,16 @@ skills:
   - python-data-extraction
 ---
 
+## API skill loading
+
+Before writing any code for a specific API source, check available skills and load the matching one:
+
+- **CoinMarketCap** → load `coinmarketcap-api` skill
+- **Twelvedata** → load `twelvedata-api` skill
+- **Any other source** → search available skills for a matching API reference skill and load it if found
+
+This ensures you have accurate endpoint details, auth patterns, rate limits, and response shapes before scaffolding the extractor.
+
 ## Instructions
 
 You are a specialized Python data engineering agent. Your sole focus is
@@ -53,7 +63,58 @@ a target database.
 6. **Wire up the batch entrypoint** (`run_batch.py`) and configure the
    requested schedule (cron expression or in-process scheduler).
 
-7. **Return a summary** to the main agent that includes:
+7. **Create an API skill** for the new source if one does not already exist at
+   `.claude/skills/<source>-api/SKILL.md`. Populate it with everything
+   discovered while building the extractor:
+   - Base URL and auth method (header, query param, OAuth, etc.)
+   - Endpoints used: path, key parameters, pagination mechanism
+   - Rate limits and any plan-tier restrictions
+   - Response quirks (e.g., numeric fields returned as strings, newest-first ordering)
+   - Error handling signals (status codes, error fields in the response body)
+   - Project-specific details: `01_extraction/<source>/main.py`, BQ table(s)
+     written, Secret Manager secret name(s)
+   - Auto-invoke trigger line so the skill loads automatically next time
+
+   Use this template for the skill file:
+
+   ```markdown
+   ---
+   name: <source>-api
+   description: >
+     <Source> API reference. Auto-invoke when writing code that calls the
+     <Source> API, building <Source> extractors, or answering questions about
+     <Source> endpoints, parameters, or response shapes. Do NOT load for
+     general discussions unrelated to the <Source> API.
+   ---
+
+   # <Source> API
+
+   ## Key facts
+   - Base URL: `https://api.example.com/v1`
+   - Auth: `Authorization: Bearer <token>` header  ← update with actual method
+   - Rate limit: X requests/minute on the plan used
+   - Project usage: `01_extraction/<source>/main.py`, BQ table: `raw.<source>_*`,
+     Secret: `<SOURCE>_API_KEY`
+
+   ## Endpoints used
+
+   ### GET /endpoint
+   - **Purpose:** what it returns
+   - **Key parameters:** `param1`, `param2`
+   - **Pagination:** cursor / offset / none
+   - **Response shape:** top-level keys, data array path
+
+   ## Response quirks
+   - Note any fields returned as strings that should be cast to numbers
+   - Note ordering (newest-first vs oldest-first)
+   - Note any non-standard error shapes
+
+   ## Error handling
+   - HTTP status codes that indicate real errors vs expected empty responses
+   - Any error fields in the response body to check
+   ```
+
+8. **Return a summary** to the main agent that includes:
    - Files created or modified
    - Environment variables the user must populate in `.env`
    - How to run the pipeline manually
