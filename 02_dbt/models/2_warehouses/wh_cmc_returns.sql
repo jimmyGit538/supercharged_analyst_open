@@ -38,22 +38,30 @@ with_lag_returns as (
         volume_24h_usd,
 
         safe_divide(
-            price_usd - lag(price_usd, 1) over (partition by coin_id order by date),
+            price_usd - lag(price_usd, 1) over (
+                partition by coin_id order by date
+            ),
             lag(price_usd, 1) over (partition by coin_id order by date)
         ) as daily_return,
 
         safe_divide(
-            price_usd - lag(price_usd, 30) over (partition by coin_id order by date),
+            price_usd - lag(price_usd, 30) over (
+                partition by coin_id order by date
+            ),
             lag(price_usd, 30) over (partition by coin_id order by date)
         ) as return_30d,
 
         safe_divide(
-            price_usd - lag(price_usd, 90) over (partition by coin_id order by date),
+            price_usd - lag(price_usd, 90) over (
+                partition by coin_id order by date
+            ),
             lag(price_usd, 90) over (partition by coin_id order by date)
         ) as return_90d,
 
         safe_divide(
-            price_usd - lag(price_usd, 365) over (partition by coin_id order by date),
+            price_usd - lag(price_usd, 365) over (
+                partition by coin_id order by date
+            ),
             lag(price_usd, 365) over (partition by coin_id order by date)
         ) as return_365d
 
