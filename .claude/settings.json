@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "input=$(cat); fp=$(python -c \"import json,sys; d=json.loads(sys.argv[1]); print(d.get('tool_input',{}).get('file_path','') or d.get('tool_response',{}).get('filePath',''))\" \"$input\"); case \"$fp\" in *.claude/*) set -a; [ -f .env ] && source .env; set +a; PYTHONPATH=infra python -m agent_registry.manage sync ;; esac",
+            "command": "python infra/agent_registry/hook.py",
             "statusMessage": "Syncing agent registry...",
             "timeout": 30
           }
