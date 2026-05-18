@@ -1,6 +1,110 @@
 version: 2
 
 models:
+  - name: fct_fred_economic_indicators
+    description: >
+      Primary Looker Studio fact table for the national macro dashboard.
+      One row per date. Incrementally loaded; partitioned by month on date.
+      Columns are NULL on dates where a series has no observation — this is
+      correct given the mixed daily/monthly/quarterly reporting frequencies.
+    tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: >
+              yield_curve_spread is null
+              or (treasury_yield_10y is not null
+                  and treasury_yield_2y is not null)
+    columns:
+      - name: date
+        description: "Observation date. Primary time dimension."
+        tests:
+          - not_null
+          - unique
+      - name: fed_funds_rate
+        description: "Federal Funds Rate percent (FEDFUNDS, monthly)."
+      - name: treasury_yield_10y
+        description: "10-Year Treasury Yield percent (DGS10, daily)."
+      - name: treasury_yield_2y
+        description: "2-Year Treasury Yield percent (DGS2, daily)."
+      - name: yield_curve_spread
+        description: >
+          10Y minus 2Y Treasury yield spread in percentage points.
+          Negative = inverted yield curve.
+      - name: mortgage_rate_30y
+        description: "30-Year Fixed Mortgage Rate percent (MORTGAGE30US, weekly)."
+      - name: unemployment_rate
+        description: "Unemployment Rate percent (UNRATE, monthly)."
+      - name: nonfarm_payrolls
+        description: >
+          Total nonfarm payrolls in thousands of persons
+          (PAYEMS, monthly).
+      - name: cpi_all_urban
+        description: "CPI All Urban Consumers index value (CPIAUCSL, monthly)."
+      - name: core_cpi
+        description: "Core CPI ex food and energy index value (CPILFESL, monthly)."
+      - name: pce_price_index
+        description: "PCE Price Index value (PCEPI, monthly)."
+      - name: gdp_nominal
+        description: "Nominal GDP in billions USD (GDP, quarterly)."
+      - name: gdp_real
+        description: "Real GDP chained 2017 dollars in billions (GDPC1, quarterly)."
+      - name: housing_starts
+        description: "Housing starts in thousands of units (HOUST, monthly)."
+      - name: consumer_sentiment
+        description: >
+          University of Michigan Consumer Sentiment Index
+          (UMCSENT, monthly).
+      - name: industrial_production
+        description: "Industrial Production Index (INDPRO, monthly)."
+      - name: median_home_price_national
+        description: "National median home sale price in USD (MSPUS, quarterly)."
+      - name: avg_hourly_earnings
+        description: >
+          Average hourly earnings for private employees in USD
+          (AHETPI, monthly).
+      - name: housing_affordability_ratio
+        description: >
+          MSPUS / (AHETPI * 2080). Higher = less affordable.
+          NULL when either series has no observation on this date.
+      - name: _loaded_at
+        description: "Timestamp when this row was written to the mart by dbt."
+
+  - name: fct_fred_state_affordability
+    description: >
+      State-level affordability fact table. One row per (state_fips, date).
+      Incrementally loaded; partitioned by year on date, clustered by
+      state_fips. Covers ~51 states/DC. Annual HPI joined with quarterly
+      average weekly wages — rows exist only where at least one series
+      reported a value on the given date.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [state_fips, date]
+    columns:
+      - name: state_fips
+        description: "2-digit state FIPS code (e.g. '06' = California)."
+        tests:
+          - not_null
+      - name: date
+        description: "Observation date."
+        tests:
+          - not_null
+      - name: house_price_index
+        description: >
+          FHFA all-transactions house price index for the state
+          (annual, ATNHPIUS<FIPS>A).
+      - name: avg_weekly_wage
+        description: >
+          Average weekly wage in USD for the state
+          (quarterly, ENUC<FIPS>40010SA).
+      - name: housing_affordability_ratio
+        description: >
+          house_price_index / avg_weekly_wage. An index-based ratio.
+          Higher values indicate lower affordability. NULL when either
+          input is NULL.
+      - name: _loaded_at
+        description: "Timestamp when this row was written to the mart by dbt."
+
   - name: fct_indices_daily_wide
     description: >
       Primary Looker Studio fact table. One row per (index_ticker, date).
