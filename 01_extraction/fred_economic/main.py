@@ -238,6 +238,8 @@ def fetch_observations(series_id: str, observation_start: str | None) -> list[di
         response = _request_with_retry(
             f"{FRED_BASE_URL}/series/observations", params=params
         )
+        if response is None:
+            return []
         data = response.json()
         batch = data.get("observations", [])
         all_observations.extend(batch)
@@ -249,12 +251,16 @@ def fetch_observations(series_id: str, observation_start: str | None) -> list[di
     return all_observations
 
 
-def _request_with_retry(url: str, params: dict) -> requests.Response:
-    """GET with exponential backoff on 429 / 5xx. Max 5 attempts."""
+def _request_with_retry(url: str, params: dict) -> requests.Response | None:
+    """GET with exponential backoff on 429 / 5xx. Max 5 attempts.
+    Returns None on 400 (series unknown/retired) so callers can skip gracefully."""
     max_attempts = 5
     for attempt in range(max_attempts):
         try:
             resp = requests.get(url, params=params, timeout=30)
+            if resp.status_code == 400:
+                log.warning("HTTP 400 from FRED (series may be retired/invalid). Skipping.")
+                return None
             if resp.status_code == 429 or resp.status_code >= 500:
                 wait = (2 ** attempt) * 5
                 log.warning(
