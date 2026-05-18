@@ -238,6 +238,8 @@ def fetch_observations(series_id: str, observation_start: str | None) -> list[di
         response = _request_with_retry(
             f"{FRED_BASE_URL}/series/observations", params=params
         )
+        if response is None:
+            return []
         data = response.json()
         batch = data.get("observations", [])
         all_observations.extend(batch)
@@ -249,12 +251,16 @@ def fetch_observations(series_id: str, observation_start: str | None) -> list[di
     return all_observations
 
 
-def _request_with_retry(url: str, params: dict) -> requests.Response:
-    """GET with exponential backoff on 429 / 5xx. Max 5 attempts."""
+def _request_with_retry(url: str, params: dict) -> requests.Response | None:
+    """GET with exponential backoff on 429 / 5xx. Max 5 attempts.
+    Returns None on 400 (series unknown/retired) so callers can skip gracefully."""
     max_attempts = 5
     for attempt in range(max_attempts):
         try:
             resp = requests.get(url, params=params, timeout=30)
+            if resp.status_code == 400:
+                log.warning("HTTP 400 from FRED (series may be retired/invalid). Skipping.")
+                return None
             if resp.status_code == 429 or resp.status_code >= 500:
                 wait = (2 ** attempt) * 5
                 log.warning(
@@ -315,7 +321,7 @@ def main() -> None:
     bq_client = bigquery.Client(project=BQ_PROJECT)
     extracted_at = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    total_rows = 0
+    all_rows: list[dict] = []
     series_with_data = 0
 
     for series_id in SERIES_IDS:
@@ -331,23 +337,24 @@ def main() -> None:
 
         if not raw_obs:
             log.info("[%s] No observations returned. Skipping.", series_id)
-            # Respect rate limit even on empty responses
             time.sleep(0.6)
             continue
 
         rows = transform_observations(series_id, raw_obs, extracted_at)
-        append_to_bigquery(bq_client, rows)
+        all_rows.extend(rows)
 
-        total_rows += len(rows)
         series_with_data += 1
-        log.info("[%s] Loaded %d rows.", series_id, len(rows))
+        log.info("[%s] Fetched %d rows (buffered, not yet written).", series_id, len(rows))
 
         # Rate limit: ~0.6s gap gives ~100 req/min headroom under the 120/min cap
         time.sleep(0.6)
 
+    if all_rows:
+        append_to_bigquery(bq_client, all_rows)
+
     log.info(
         "fred_economic extraction complete. Series with data: %d/%d. Total rows: %d.",
-        series_with_data, len(SERIES_IDS), total_rows,
+        series_with_data, len(SERIES_IDS), len(all_rows),
     )
 
 
