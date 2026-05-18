@@ -118,6 +118,9 @@ Examples:
 All GCP infrastructure is managed by Terraform in `infra/terraform/`. This is the source of truth for infrastructure — the legacy shell scripts (`setup.sh`, `create_jobs.sh`, `deploy.sh`) are retained as reference but superseded by Terraform.
 
 **Adding a new data source:**
+
+> Before starting any work on a new data source, invoke the `add-data-source` skill (`/add-data-source`) to complete the intake process. No code should be written until all intake questions are answered and API research is complete.
+
 1. Create `01_extraction/<source>/main.py`, `requirements.txt`, `Dockerfile`
 2. Create `infra/workflows/<source>_pipeline.yaml` (Cloud Workflow definition)
 3. Add one entry to `terraform.tfvars` in the `sources` map
