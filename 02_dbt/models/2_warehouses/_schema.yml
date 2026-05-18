@@ -1,6 +1,35 @@
 version: 2
 
 models:
+  - name: fred_economic_observations
+    description: >
+      Warehouse table for FRED economic observations. One row per
+      (series_id, date). Incrementally loaded using a per-series date
+      watermark. Partitioned by month on date, clustered by series_id.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [series_id, date]
+    columns:
+      - name: series_id
+        description: "FRED series identifier (e.g. FEDFUNDS, DGS10)."
+        tests:
+          - not_null
+      - name: date
+        description: "Observation date."
+        tests:
+          - not_null
+      - name: value
+        description: >
+          Observed value. NULL when FRED returns a missing-value sentinel.
+          Never coerced to 0.
+      - name: extracted_at
+        description: "UTC timestamp from the extraction job."
+        tests:
+          - not_null
+      - name: _loaded_at
+        description: "Timestamp when this row was written to the warehouse by dbt."
+
   - name: wh_indices_daily
     description: "Core fact table. One row per (index_ticker, date). Incremental — appends new trading days only."
     tests:

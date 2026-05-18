@@ -122,6 +122,28 @@ sources:
             description: "Primary website URL for the project."
           - name: extracted_at
             description: "UTC timestamp when the row was written to BigQuery."
+      - name: fred_economic_observations
+        description: >
+          FRED economic observations loaded by the FRED extraction job.
+          One row per (series_id, date). All series land in this single table,
+          distinguished by series_id. value is NULL when FRED returns ".".
+        config:
+          loaded_at_field: extracted_at
+          freshness:
+            warn_after: {count: 2, period: day}
+            error_after: {count: 7, period: day}
+        columns:
+          - name: series_id
+            description: >
+              FRED series identifier (e.g. FEDFUNDS, DGS10, ATNHPIUS06000A).
+          - name: date
+            description: "Observation date."
+          - name: value
+            description: >
+              Observed value for the series on this date.
+              NULL when FRED returns a missing-value sentinel (".").
+          - name: extracted_at
+            description: "UTC timestamp when the row was written to BigQuery."
       - name: coinmarketcap_quotes_daily
         description: "Daily price, volume, and market cap per coin. Incrementally appended by the extraction job (watermark per coin_id)."
         config:

@@ -46,6 +46,33 @@ models:
       - name: extracted_at
         description: "UTC timestamp when the row was written to BigQuery by the extraction job."
 
+  - name: stg_fred_economic__observations
+    description: >
+      Deduplicated and filtered view over raw.fred_economic_observations.
+      One row per (series_id, date), keeping the latest extracted_at when
+      duplicates exist. Rows with null series_id or null date are excluded.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [series_id, date]
+    columns:
+      - name: series_id
+        description: "FRED series identifier (e.g. FEDFUNDS, DGS10)."
+        tests:
+          - not_null
+      - name: date
+        description: "Observation date."
+        tests:
+          - not_null
+      - name: value
+        description: >
+          Observed value for the series. NULL when FRED returns a
+          missing-value sentinel. Do not coerce to 0.
+      - name: extracted_at
+        description: "UTC timestamp when the row was written to BigQuery."
+        tests:
+          - not_null
+
   - name: stg_coinmarketcap__categories
     description: "Cleaned and deduplicated view over raw CoinMarketCap categories. One row per category (latest extraction)."
     tests:

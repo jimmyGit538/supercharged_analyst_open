@@ -1,6 +1,113 @@
 version: 2
 
 models:
+  - name: stg_fred_economic__indicators
+    description: >
+      Pivoted view of national FRED indicators. One row per date.
+      Each column represents a single FRED series. Dates without an
+      observation for a given series will have NULL for that column —
+      this is correct behaviour given the mixed reporting frequencies
+      (daily, monthly, quarterly).
+    columns:
+      - name: date
+        description: "Observation date. Primary time dimension."
+        tests:
+          - not_null
+      - name: fed_funds_rate
+        description: "Federal Funds Rate (FEDFUNDS, monthly)."
+      - name: treasury_yield_10y
+        description: "10-Year Treasury Yield (DGS10, daily)."
+      - name: treasury_yield_2y
+        description: "2-Year Treasury Yield (DGS2, daily)."
+      - name: yield_curve_spread
+        description: >
+          10Y minus 2Y Treasury yield spread. Negative values indicate
+          yield curve inversion, historically a recession signal.
+      - name: mortgage_rate_30y
+        description: "30-Year Fixed Mortgage Rate (MORTGAGE30US, weekly)."
+      - name: unemployment_rate
+        description: "Unemployment Rate percent (UNRATE, monthly)."
+      - name: nonfarm_payrolls
+        description: >
+          Total nonfarm payrolls in thousands of persons
+          (PAYEMS, monthly).
+      - name: cpi_all_urban
+        description: >
+          Consumer Price Index — All Urban Consumers, index value
+          (CPIAUCSL, monthly).
+      - name: core_cpi
+        description: >
+          Core CPI excluding food and energy, index value
+          (CPILFESL, monthly).
+      - name: pce_price_index
+        description: >
+          PCE Price Index, index value (PCEPI, monthly).
+      - name: gdp_nominal
+        description: "Nominal GDP in billions USD (GDP, quarterly)."
+      - name: gdp_real
+        description: >
+          Real GDP chained 2017 dollars in billions
+          (GDPC1, quarterly).
+      - name: housing_starts
+        description: >
+          Housing starts in thousands of units
+          (HOUST, monthly).
+      - name: consumer_sentiment
+        description: >
+          University of Michigan Consumer Sentiment Index
+          (UMCSENT, monthly).
+      - name: industrial_production
+        description: "Industrial Production Index (INDPRO, monthly)."
+      - name: median_home_price_national
+        description: >
+          National median home sale price in USD
+          (MSPUS, quarterly).
+      - name: avg_hourly_earnings
+        description: >
+          Average hourly earnings for private employees in USD
+          (AHETPI, monthly).
+      - name: housing_affordability_ratio
+        description: >
+          Ratio of median home sale price to annual earnings
+          (MSPUS / (AHETPI * 2080)). Higher values indicate lower
+          affordability. NULL when either input is NULL.
+
+  - name: stg_fred_economic__state_affordability
+    description: >
+      State-level affordability view. One row per (state_fips, date).
+      Joins FHFA house price index series (annual) with BLS average
+      weekly wage series (quarterly) on 2-digit state FIPS code and
+      date. Rows with no observation on a given date for either series
+      are excluded via the NOT NULL filter on value in each CTE.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [state_fips, date]
+    columns:
+      - name: state_fips
+        description: >
+          2-digit state FIPS code extracted from the series_id
+          (e.g. '06' for California, '36' for New York).
+        tests:
+          - not_null
+      - name: date
+        description: "Observation date."
+        tests:
+          - not_null
+      - name: house_price_index
+        description: >
+          FHFA all-transactions house price index for the state
+          (ATNHPIUS<FIPS>A series, annual).
+      - name: avg_weekly_wage
+        description: >
+          Average weekly wage in USD for the state
+          (ENUC<FIPS>40010SA series, quarterly).
+      - name: housing_affordability_ratio
+        description: >
+          house_price_index / avg_weekly_wage. An index-based ratio —
+          not an absolute dollar measure. Higher means less affordable.
+          NULL when either input is NULL.
+
   - name: stg_cmc__coin_daily
     description: "Denormalized view combining wh_cmc_returns, wh_cmc_coin_metadata, and wh_cmc_category_coins. One row per (date, coin_id)."
     tests:
