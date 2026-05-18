@@ -26,36 +26,37 @@ with source as (
 
 {% if is_incremental() %}
 
-watermarks as (
+    watermarks as (
+
+        select
+            series_id,
+            max(date) as max_date
+
+        from {{ this }}
+        group by series_id
+
+    ),
+
+    incremental as (
+
+        select src.*
+        from source as src
+        left join watermarks as wm
+            on src.series_id = wm.series_id
+        where
+            wm.series_id is null
+            or src.date > wm.max_date
+
+    )
 
     select
         series_id,
-        max(date) as max_date
+        date,
+        value,
+        extracted_at,
+        current_timestamp() as _loaded_at
 
-    from {{ this }}
-    group by series_id
-
-),
-
-incremental as (
-
-    select src.*
-    from source as src
-    left join watermarks as wm
-        on src.series_id = wm.series_id
-    where wm.series_id is null
-        or src.date > wm.max_date
-
-)
-
-select
-    series_id,
-    date,
-    value,
-    extracted_at,
-    current_timestamp() as _loaded_at
-
-from incremental
+    from incremental
 
 {% else %}
 

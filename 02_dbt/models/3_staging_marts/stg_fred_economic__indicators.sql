@@ -58,24 +58,25 @@ pivoted as (
         ) as avg_hourly_earnings
 
     from observations
-    where series_id in (
-        'FEDFUNDS',
-        'DGS10',
-        'DGS2',
-        'MORTGAGE30US',
-        'UNRATE',
-        'PAYEMS',
-        'CPIAUCSL',
-        'CPILFESL',
-        'PCEPI',
-        'GDP',
-        'GDPC1',
-        'HOUST',
-        'UMCSENT',
-        'INDPRO',
-        'MSPUS',
-        'AHETPI'
-    )
+    where
+        series_id in (
+            'FEDFUNDS',
+            'DGS10',
+            'DGS2',
+            'MORTGAGE30US',
+            'UNRATE',
+            'PAYEMS',
+            'CPIAUCSL',
+            'CPILFESL',
+            'PCEPI',
+            'GDP',
+            'GDPC1',
+            'HOUST',
+            'UMCSENT',
+            'INDPRO',
+            'MSPUS',
+            'AHETPI'
+        )
     group by date
 
 )
@@ -85,7 +86,6 @@ select
     fed_funds_rate,
     treasury_yield_10y,
     treasury_yield_2y,
-    treasury_yield_10y - treasury_yield_2y as yield_curve_spread,
     mortgage_rate_30y,
     unemployment_rate,
     nonfarm_payrolls,
@@ -99,11 +99,12 @@ select
     industrial_production,
     median_home_price_national,
     avg_hourly_earnings,
+    treasury_yield_10y - treasury_yield_2y as yield_curve_spread,
     case
-        when median_home_price_national is not null
+        when
+            median_home_price_national is not null
             and avg_hourly_earnings is not null
             then median_home_price_national / (avg_hourly_earnings * 2080)
-        else null
     end as housing_affordability_ratio
 
 from pivoted

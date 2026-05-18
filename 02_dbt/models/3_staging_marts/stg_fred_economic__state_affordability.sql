@@ -1,6 +1,6 @@
--- State-level affordability view. One row per (state_fips, date).
+﻿-- State-level affordability view. One row per (state_fips, date).
 -- House price index series pattern: ATNHPIUS<FIPS>A  (annual, FIPS = 5 chars)
--- Avg weekly wage series pattern:   ENUC<FIPS>40010SA (quarterly, FIPS = 4 chars)
+-- Avg weekly wage series pattern:   ENUC<FIPS>40010SA (quarterly)
 -- FIPS is extracted as the 2-digit state code from both patterns.
 with observations as (
 
@@ -12,12 +12,13 @@ hpi as (
 
     -- FHFA house price index: ATNHPIUS06000A -> state_fips '06'
     select
-        regexp_extract(series_id, r'^ATNHPIUS(\d{2})\d{3}A$', 1) as state_fips,
         date,
-        value as house_price_index
+        value as house_price_index,
+        regexp_extract(series_id, r'^ATNHPIUS(\d{2})\d{3}A$', 1) as state_fips
 
     from observations
-    where regexp_contains(series_id, r'^ATNHPIUS\d{5}A$')
+    where
+        regexp_contains(series_id, r'^ATNHPIUS\d{5}A$')
         and value is not null
 
 ),
@@ -26,12 +27,14 @@ wages as (
 
     -- Avg weekly wage: ENUC060040010SA -> state_fips '06'
     select
-        regexp_extract(series_id, r'^ENUC(\d{2})\d{2}40010SA$', 1) as state_fips,
         date,
-        value as avg_weekly_wage
+        value as avg_weekly_wage,
+        regexp_extract(series_id, r'^ENUC(\d{2})\d{2}40010SA$', 1)
+            as state_fips
 
     from observations
-    where regexp_contains(series_id, r'^ENUC\d{4}40010SA$')
+    where
+        regexp_contains(series_id, r'^ENUC\d{4}40010SA$')
         and value is not null
 
 ),
@@ -39,15 +42,16 @@ wages as (
 joined as (
 
     select
-        coalesce(hpi.state_fips, wages.state_fips) as state_fips,
-        coalesce(hpi.date, wages.date) as date,  -- noqa: RF04
         hpi.house_price_index,
-        wages.avg_weekly_wage
+        wages.avg_weekly_wage,  -- noqa: RF04
+        coalesce(hpi.state_fips, wages.state_fips) as state_fips,
+        coalesce(hpi.date, wages.date) as date  -- noqa: RF04  -- noqa: RF04
 
     from hpi
     full outer join wages
-        on hpi.state_fips = wages.state_fips
-        and hpi.date = wages.date
+        on
+            hpi.state_fips = wages.state_fips
+            and hpi.date = wages.date
 
 )
 
@@ -59,9 +63,9 @@ select
     case
         when house_price_index is not null and avg_weekly_wage is not null
             then house_price_index / avg_weekly_wage
-        else null
     end as housing_affordability_ratio
 
 from joined
-where state_fips is not null
+where
+    state_fips is not null
     and date is not null

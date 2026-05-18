@@ -8,7 +8,8 @@ filtered as (
 
     select *
     from source
-    where series_id is not null
+    where
+        series_id is not null
         and date is not null
 
 ),
