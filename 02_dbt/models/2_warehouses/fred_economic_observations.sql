@@ -23,7 +23,7 @@ with source as (
     from {{ ref('stg_fred_economic__observations') }}
 
     {% if is_incremental() %}
-        where date > (select max(date) from {{ this }})
+        where date > (select max(date) from {{ this }})  -- noqa: RF02
     {% endif %}
 
 )
