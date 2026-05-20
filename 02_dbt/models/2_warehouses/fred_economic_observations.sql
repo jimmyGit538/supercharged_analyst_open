@@ -22,11 +22,11 @@ with source as (
 
     from {{ ref('stg_fred_economic__observations') }}
 
-),
+)
 
 {% if is_incremental() %}
 
-    watermarks as (
+, watermarks as (
 
         select
             series_id,
