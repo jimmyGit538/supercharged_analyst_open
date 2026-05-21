@@ -1,4 +1,4 @@
-﻿-- State-level affordability view. One row per (state_fips, date).
+-- State-level affordability view. One row per (state_fips, date).
 -- House price index series pattern: ATNHPIUS<FIPS>A  (annual, FIPS = 5 chars)
 -- Avg weekly wage series pattern:   ENUC<FIPS>40010SA (quarterly)
 -- FIPS is extracted as the 2-digit state code from both patterns.
