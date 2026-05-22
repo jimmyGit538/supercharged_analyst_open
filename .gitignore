@@ -20,6 +20,14 @@ env/
 .env
 *.env
 
+# Terraform — local state and personal config
+terraform.tfvars
+tfplan
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+
 # Claude Code — machine-local settings (may contain personal permissions or secrets)
 .claude/settings.local.json
 

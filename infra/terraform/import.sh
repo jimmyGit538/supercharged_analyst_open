@@ -136,30 +136,30 @@ tf_import "google_bigquery_dataset_access.dbt_warehouses_writer" \
 tf_import "google_bigquery_dataset_access.dbt_marts_writer" \
   "projects/${PROJECT_ID}/datasets/marts userByEmail:dbt-runner@${PROJECT_ID}.iam.gserviceaccount.com WRITER" || true
 
-# ── Phase 9: Cloud Run Jobs ─────────────────────────────────────────────────
+# ── Phase 9–11: Cloud Run Jobs, Workflows, Schedulers ───────────────────────
+# These are generated per-source from the sources map in terraform.tfvars.
+# After you have added your sources and run terraform plan, import each
+# existing resource using the patterns below (one block per source):
+#
+# SOURCE=my-source
+# FREQ=daily
+#
+# Cloud Run Jobs (5 per source):
+# for stage in extract dbt-stg-warehouse dbt-warehouse dbt-stg-marts dbt-mart; do
+#   tf_import "google_cloud_run_v2_job.jobs[\"${SOURCE}-${stage}-${FREQ}\"]" \
+#     "projects/${PROJECT_ID}/locations/${REGION}/jobs/${SOURCE}-${stage}-${FREQ}"
+# done
+#
+# Cloud Workflow:
+# tf_import "google_workflows_workflow.pipelines[\"${SOURCE}\"]" \
+#   "projects/${PROJECT_ID}/locations/${REGION}/workflows/${SOURCE}-pipeline"
+#
+# Cloud Scheduler:
+# tf_import "google_cloud_scheduler_job.pipelines[\"${SOURCE}\"]" \
+#   "projects/${PROJECT_ID}/locations/${REGION}/jobs/${SOURCE}-pipeline-${FREQ}"
 echo ""
-echo "Phase 9: Cloud Run Jobs"
-for job in \
-  indices-extract-daily \
-  indices-dbt-stg-warehouse-daily \
-  indices-dbt-warehouse-daily \
-  indices-dbt-stg-marts-daily \
-  indices-dbt-mart-daily; do
-  tf_import "google_cloud_run_v2_job.jobs[\"${job}\"]" \
-    "projects/${PROJECT_ID}/locations/${REGION}/jobs/${job}"
-done
-
-# ── Phase 10: Cloud Workflow ─────────────────────────────────────────────────
-echo ""
-echo "Phase 10: Cloud Workflow"
-tf_import "google_workflows_workflow.pipelines[\"indices\"]" \
-  "projects/${PROJECT_ID}/locations/${REGION}/workflows/indices-pipeline"
-
-# ── Phase 11: Cloud Scheduler ────────────────────────────────────────────────
-echo ""
-echo "Phase 11: Cloud Scheduler"
-tf_import "google_cloud_scheduler_job.pipelines[\"indices\"]" \
-  "projects/${PROJECT_ID}/locations/${REGION}/jobs/indices-pipeline-daily"
+echo "Phases 9–11: Cloud Run Jobs, Workflows, Schedulers"
+echo "  → These are source-specific. See import.sh comments for the import pattern."
 
 echo ""
 echo "══════════════════════════════════════════════════════════════════"

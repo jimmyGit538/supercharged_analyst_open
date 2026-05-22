@@ -1,13 +1,21 @@
-project_id  = "your-gcp-project-id"
-region      = "us-central1"
-github_repo = "your-org/your-repo"
+# terraform.tfvars.example
+# Copy this file to terraform.tfvars and fill in your values.
+# terraform.tfvars is gitignored — never commit it.
 
+project_id  = "YOUR_GCP_PROJECT_ID"
+region      = "us-central1"
+github_repo = "YOUR_GITHUB_ORG/YOUR_REPO_NAME"
+
+# Add one entry per data source.
+# Each entry auto-generates 5 Cloud Run Jobs + a Cloud Scheduler trigger.
+# Run /add-data-source in Claude Code to scaffold a new source end-to-end.
 sources = {
-  indices = {
-    extraction_image = "twelvedata-indices"
-    frequency        = "daily"
-    schedule         = "0 6 * * *"
-    env_vars         = { BQ_PROJECT_EXTRACTION = "your-gcp-project-id" }
-    secrets          = { TWELVEDATA_API_KEY = "latest" }
+  example-source = {
+    extraction_image = "example-source"           # Docker image name in Artifact Registry
+    frequency        = "daily"                    # daily | weekly | monthly
+    schedule         = "0 6 * * *"               # cron expression (UTC)
+    env_vars         = { BQ_PROJECT_EXTRACTION = "YOUR_GCP_PROJECT_ID" }
+    secrets          = { EXAMPLE_API_KEY = "latest" }  # Secret Manager secret names
+    # timeout        = "3600s"                   # optional — default 600s
   }
 }

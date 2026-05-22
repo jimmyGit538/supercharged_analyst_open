@@ -22,7 +22,7 @@ reference for all endpoint names, parameters, response schemas, and error codes.
 **Used in this project:**
 - Extraction job: `01_extraction/twelvedata_indices/main.py`
 - Symbols: `IVV` (S&P 500 proxy), `ONEQ` (Nasdaq Composite — Fidelity Nasdaq Composite Index Fund), `DIA` (Dow Jones proxy)
-- BQ table: `supercharged-analyst.raw.twelvedata_indices_daily`
+- BQ table: `YOUR_GCP_PROJECT_ID.raw.twelvedata_indices_daily`
 - Secret Manager secret: `TWELVEDATA_API_KEY`
 - Env var: `TWELVEDATA_API_KEY`
 
