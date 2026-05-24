@@ -1,5 +1,5 @@
 ---
-name: twelvedata-api
+name: api-twelvedata
 description: >
   Twelvedata API reference. Auto-invoke when writing code that calls the
   Twelvedata API, building Twelvedata extractors, or answering questions about

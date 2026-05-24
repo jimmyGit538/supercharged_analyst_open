@@ -1,5 +1,5 @@
 ---
-name: coinmarketcap-api
+name: api-coinmarketcap
 description: >
   CoinMarketCap API reference. Auto-invoke when writing code that calls the
   CoinMarketCap API, building CoinMarketCap extractors, or answering questions
