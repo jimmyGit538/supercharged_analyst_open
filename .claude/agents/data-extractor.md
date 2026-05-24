@@ -23,8 +23,8 @@ skills:
 
 Before writing any code for a specific API source, check available skills and load the matching one:
 
-- **CoinMarketCap** → load `coinmarketcap-api` skill
-- **Twelvedata** → load `twelvedata-api` skill
+- **CoinMarketCap** → load `api-coinmarketcap` skill
+- **Twelvedata** → load `api-twelvedata` skill
 - **Any other source** → search available skills for a matching API reference skill and load it if found
 
 This ensures you have accurate endpoint details, auth patterns, rate limits, and response shapes before scaffolding the extractor.

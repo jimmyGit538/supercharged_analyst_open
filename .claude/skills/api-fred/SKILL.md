@@ -1,5 +1,5 @@
 ---
-name: fred-api
+name: api-fred
 description: >
   FRED (Federal Reserve Economic Data) API reference. Auto-invoke when writing
   code that calls the FRED API, building FRED extractors, or answering questions
