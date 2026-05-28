@@ -42,20 +42,50 @@ ruff check --fix 01_extraction/
 
 ### sqlfluff (SQL)
 
-Three rules are enforced (`--dialect bigquery`):
+Rules enforced (`--dialect bigquery`):
 
 | Rule | Meaning | Fix |
 |---|---|---|
-| `LT01` | Trailing whitespace | Remove trailing spaces on each line |
+| `LT01` | Extra whitespace before `AS` keyword (e.g. column alignment with spaces) | Use a single space before `AS` — no padding for visual alignment |
 | `RF04` | Keywords must be uppercase | `select` → `SELECT`, `from` → `FROM`, etc. |
 | `LT05` | Line too long (>120 chars) | Break long `SELECT` lists or `JOIN` conditions across lines |
+| `AL01` | Implicit table alias — `FROM t r` instead of `FROM t AS r` | Always use explicit `AS` for table aliases: `FROM t AS r`, `JOIN t2 AS s` |
+| `ST06` | Column order in SELECT: wildcards → simple targets → calculations | See note below |
+
+**ST06 — column ordering in SELECT:**
+
+The ordering rule is stricter than "simple before calculated." sqlfluff ranks expressions by complexity:
+1. Wildcards (`*`)
+2. Bare column references (`col`, `col AS alias`)
+3. Simple function calls (`CAST(col AS type)`)
+4. Nested/compound functions (`LOWER(TRIM(CAST(...)))`)
+
+A `CAST()` must therefore come before a `LOWER(TRIM(CAST()))`. Mixing them out of order triggers ST06 even though both are "calculations."
+
+The safest pattern (mirrors all existing staging models): cast every column in the `cleaned` CTE so there are no bare column references, then expose plain column names in the final `SELECT`. Example:
+
+```sql
+cleaned as (
+    select
+        cast(id as string) as id,           -- simple cast first
+        cast(weight as numeric) as weight,  -- simple cast
+        lower(trim(cast(symbol as string))) as symbol  -- nested last
+    from source
+)
+select id, weight, symbol from cleaned  -- all simple refs, no ordering issue
+```
+
+When ST06 triggers and the correct order is non-obvious, use auto-fix to let sqlfluff reorder for you:
+```bash
+sqlfluff fix 02_dbt/models/ --dialect bigquery --rules ST06
+```
 
 Run locally:
 ```bash
 sqlfluff lint 02_dbt/models/ --dialect bigquery
 ```
 
-Auto-fix:
+Auto-fix all safe violations:
 ```bash
 sqlfluff fix 02_dbt/models/ --dialect bigquery
 ```

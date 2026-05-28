@@ -1,0 +1,336 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1200 920" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', Arial, sans-serif">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a"/>
+      <stop offset="100%" style="stop-color:#1e293b"/>
+    </linearGradient>
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6"/>
+      <stop offset="100%" style="stop-color:#2563eb"/>
+    </linearGradient>
+    <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10b981"/>
+      <stop offset="100%" style="stop-color:#059669"/>
+    </linearGradient>
+    <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8b5cf6"/>
+      <stop offset="100%" style="stop-color:#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f59e0b"/>
+      <stop offset="100%" style="stop-color:#d97706"/>
+    </linearGradient>
+    <linearGradient id="pinkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ec4899"/>
+      <stop offset="100%" style="stop-color:#db2777"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+    <filter id="glowBlue">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <marker id="arrowBlue" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#60a5fa"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#34d399"/>
+    </marker>
+    <marker id="arrowPurple" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#a78bfa"/>
+    </marker>
+    <marker id="arrowOrange" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#fbbf24"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="920" fill="url(#bgGrad)"/>
+
+  <!-- Grid dots subtle background -->
+  <pattern id="dots" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+    <circle cx="2" cy="2" r="1" fill="#334155" opacity="0.5"/>
+  </pattern>
+  <rect width="1200" height="920" fill="url(#dots)"/>
+
+  <!-- ============ TITLE ============ -->
+  <text x="600" y="42" text-anchor="middle" fill="#f8fafc" font-size="22" font-weight="700" letter-spacing="1">SUPERCHARGED ANALYST — SYSTEM ARCHITECTURE</text>
+  <text x="600" y="62" text-anchor="middle" fill="#94a3b8" font-size="12">GCP-native modern data stack · AI-bootstrapped · Terraform-managed</text>
+  <line x1="80" y1="72" x2="1120" y2="72" stroke="#334155" stroke-width="1"/>
+
+  <!-- ============ ROW LABELS ============ -->
+  <!-- Layer labels on left side -->
+  <rect x="8" y="88" width="58" height="68" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="37" y="122" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="600">DATA</text>
+  <text x="37" y="134" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="600">SOURCES</text>
+
+  <rect x="8" y="208" width="58" height="52" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="37" y="232" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="600">EXTRACT</text>
+  <text x="37" y="244" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="600">+ LOAD</text>
+
+  <rect x="8" y="308" width="58" height="52" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="37" y="332" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="600">BIG</text>
+  <text x="37" y="344" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="600">QUERY</text>
+
+  <rect x="8" y="410" width="58" height="52" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="37" y="432" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="600">TRANSFORM</text>
+  <text x="37" y="444" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="600">(dbt)</text>
+
+  <rect x="8" y="578" width="58" height="52" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="37" y="602" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="600">SERVE</text>
+
+  <rect x="8" y="658" width="58" height="68" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="37" y="686" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="600">INFRA +</text>
+  <text x="37" y="698" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="600">ORCH</text>
+
+  <rect x="8" y="756" width="58" height="68" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="37" y="784" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="600">AI +</text>
+  <text x="37" y="796" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="600">CI/CD</text>
+
+  <!-- ============ ROW 1: DATA SOURCES ============ -->
+  <!-- Twelvedata -->
+  <rect x="80" y="88" width="180" height="68" rx="10" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="170" y="114" text-anchor="middle" fill="#93c5fd" font-size="11" font-weight="700">TWELVEDATA</text>
+  <text x="170" y="130" text-anchor="middle" fill="#60a5fa" font-size="10">Equities &amp; Indices</text>
+  <text x="170" y="145" text-anchor="middle" fill="#94a3b8" font-size="9">Daily OHLCV · Symbol metadata</text>
+
+  <!-- CoinMarketCap -->
+  <rect x="300" y="88" width="180" height="68" rx="10" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="390" y="114" text-anchor="middle" fill="#93c5fd" font-size="11" font-weight="700">COINMARKETCAP</text>
+  <text x="390" y="130" text-anchor="middle" fill="#60a5fa" font-size="10">Cryptocurrency Prices</text>
+  <text x="390" y="145" text-anchor="middle" fill="#94a3b8" font-size="9">Quotes · Categories · Metadata</text>
+
+  <!-- FRED -->
+  <rect x="520" y="88" width="180" height="68" rx="10" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="610" y="114" text-anchor="middle" fill="#93c5fd" font-size="11" font-weight="700">FRED</text>
+  <text x="610" y="130" text-anchor="middle" fill="#60a5fa" font-size="10">Federal Reserve Economic</text>
+  <text x="610" y="145" text-anchor="middle" fill="#94a3b8" font-size="9">Macro series · Interest rates · CPI</text>
+
+  <!-- Future sources placeholder -->
+  <rect x="740" y="88" width="180" height="68" rx="10" fill="#0f2337" stroke="#334155" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="830" y="119" text-anchor="middle" fill="#475569" font-size="11" font-weight="700">+ MORE SOURCES</text>
+  <text x="830" y="137" text-anchor="middle" fill="#475569" font-size="10">Salesforce · Stripe · HubSpot</text>
+  <text x="830" y="152" text-anchor="middle" fill="#475569" font-size="9">Add via /add-data-source skill</text>
+
+  <!-- ============ ARROWS: sources → extraction ============ -->
+  <line x1="170" y1="156" x2="170" y2="200" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="4,2" marker-end="url(#arrowBlue)"/>
+  <line x1="390" y1="156" x2="390" y2="200" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="4,2" marker-end="url(#arrowBlue)"/>
+  <line x1="610" y1="156" x2="610" y2="200" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="4,2" marker-end="url(#arrowBlue)"/>
+
+  <!-- ============ ROW 2: EXTRACTION JOBS ============ -->
+  <rect x="80" y="208" width="180" height="52" rx="8" fill="#1a2f45" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="170" y="228" text-anchor="middle" fill="#e2e8f0" font-size="10" font-weight="600">Cloud Run Job</text>
+  <text x="170" y="242" text-anchor="middle" fill="#60a5fa" font-size="10" font-weight="700">twelvedata-extract-daily</text>
+  <text x="170" y="254" text-anchor="middle" fill="#94a3b8" font-size="8">Python · Docker · Artifact Registry</text>
+
+  <rect x="300" y="208" width="180" height="52" rx="8" fill="#1a2f45" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="390" y="228" text-anchor="middle" fill="#e2e8f0" font-size="10" font-weight="600">Cloud Run Job</text>
+  <text x="390" y="242" text-anchor="middle" fill="#60a5fa" font-size="10" font-weight="700">coinmarketcap-extract-daily</text>
+  <text x="390" y="254" text-anchor="middle" fill="#94a3b8" font-size="8">Python · Docker · Artifact Registry</text>
+
+  <rect x="520" y="208" width="180" height="52" rx="8" fill="#1a2f45" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="610" y="228" text-anchor="middle" fill="#e2e8f0" font-size="10" font-weight="600">Cloud Run Job</text>
+  <text x="610" y="242" text-anchor="middle" fill="#60a5fa" font-size="10" font-weight="700">fred-extract-daily</text>
+  <text x="610" y="254" text-anchor="middle" fill="#94a3b8" font-size="8">Python · Docker · Artifact Registry</text>
+
+  <!-- ============ ARROWS: extraction → raw ============ -->
+  <line x1="170" y1="260" x2="170" y2="300" stroke="#10b981" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+  <line x1="390" y1="260" x2="390" y2="300" stroke="#10b981" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+  <line x1="610" y1="260" x2="610" y2="300" stroke="#10b981" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+
+  <!-- ============ ROW 3: BIGQUERY RAW ============ -->
+  <rect x="80" y="308" width="640" height="52" rx="8" fill="#14291f" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="148" y="328" text-anchor="middle" fill="#6ee7b7" font-size="10" font-weight="700">BigQuery: raw</text>
+  <text x="148" y="343" text-anchor="middle" fill="#94a3b8" font-size="8">Landing zone</text>
+  <!-- table names inside raw -->
+  <rect x="210" y="314" width="145" height="36" rx="4" fill="#0a1f14" stroke="#059669" stroke-width="1"/>
+  <text x="282" y="329" text-anchor="middle" fill="#6ee7b7" font-size="8" font-weight="600">twelvedata_indices_daily</text>
+  <text x="282" y="341" text-anchor="middle" fill="#6ee7b7" font-size="8">twelvedata_symbols_metadata</text>
+  <rect x="365" y="314" width="175" height="36" rx="4" fill="#0a1f14" stroke="#059669" stroke-width="1"/>
+  <text x="452" y="325" text-anchor="middle" fill="#6ee7b7" font-size="8" font-weight="600">cmc_quotes_daily · cmc_categories</text>
+  <text x="452" y="337" text-anchor="middle" fill="#6ee7b7" font-size="8">cmc_coin_metadata · cmc_category_coins</text>
+  <text x="452" y="348" text-anchor="middle" fill="#6ee7b7" font-size="7">...</text>
+  <rect x="550" y="314" width="155" height="36" rx="4" fill="#0a1f14" stroke="#059669" stroke-width="1"/>
+  <text x="627" y="329" text-anchor="middle" fill="#6ee7b7" font-size="8" font-weight="600">fred_economic_observations</text>
+  <text x="627" y="341" text-anchor="middle" fill="#94a3b8" font-size="8">series_id · date · value</text>
+
+  <!-- ============ ARROWS: raw → dbt ============ -->
+  <line x1="390" y1="360" x2="390" y2="402" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowPurple)"/>
+
+  <!-- ============ ROW 4: DBT 4-LAYER ============ -->
+  <!-- Big dbt container -->
+  <rect x="80" y="410" width="1040" height="158" rx="10" fill="#1a1535" stroke="#7c3aed" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="600" y="428" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="700">dbt Core — 4-Layer Transformation Pipeline (Cloud Run Jobs)</text>
+
+  <!-- Layer 1: Staging Warehouses -->
+  <rect x="96" y="436" width="236" height="118" rx="6" fill="#211845" stroke="#8b5cf6" stroke-width="1"/>
+  <rect x="96" y="436" width="236" height="22" rx="6" fill="#8b5cf6"/>
+  <text x="214" y="451" text-anchor="middle" fill="white" font-size="9" font-weight="700">1. STAGING WAREHOUSES</text>
+  <text x="214" y="465" text-anchor="middle" fill="#94a3b8" font-size="8">Materialised as Views → stg_warehouses</text>
+  <text x="214" y="478" text-anchor="middle" fill="#c4b5fd" font-size="8">stg_twelvedata__indices_prices</text>
+  <text x="214" y="490" text-anchor="middle" fill="#c4b5fd" font-size="8">stg_coinmarketcap__categories</text>
+  <text x="214" y="502" text-anchor="middle" fill="#c4b5fd" font-size="8">stg_coinmarketcap__quotes_daily</text>
+  <text x="214" y="514" text-anchor="middle" fill="#c4b5fd" font-size="8">stg_coinmarketcap__coin_metadata</text>
+  <text x="214" y="526" text-anchor="middle" fill="#c4b5fd" font-size="8">stg_fred_economic__observations</text>
+  <text x="214" y="538" text-anchor="middle" fill="#7c3aed" font-size="8">6 staging views</text>
+
+  <!-- Arrow layer 1 → 2 -->
+  <line x1="332" y1="495" x2="348" y2="495" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowPurple)"/>
+
+  <!-- Layer 2: Warehouses -->
+  <rect x="348" y="436" width="236" height="118" rx="6" fill="#211845" stroke="#8b5cf6" stroke-width="1"/>
+  <rect x="348" y="436" width="236" height="22" rx="6" fill="#7c3aed"/>
+  <text x="466" y="451" text-anchor="middle" fill="white" font-size="9" font-weight="700">2. WAREHOUSES</text>
+  <text x="466" y="465" text-anchor="middle" fill="#94a3b8" font-size="8">Materialised as Tables → warehouses</text>
+  <text x="466" y="478" text-anchor="middle" fill="#c4b5fd" font-size="8">wh_indices_daily (incremental)</text>
+  <text x="466" y="490" text-anchor="middle" fill="#c4b5fd" font-size="8">wh_indices_returns · wh_indices_metadata</text>
+  <text x="466" y="502" text-anchor="middle" fill="#c4b5fd" font-size="8">wh_cmc_quotes_daily (incremental)</text>
+  <text x="466" y="514" text-anchor="middle" fill="#c4b5fd" font-size="8">wh_cmc_categories · wh_cmc_returns</text>
+  <text x="466" y="526" text-anchor="middle" fill="#c4b5fd" font-size="8">fred_economic_observations (incr.)</text>
+  <text x="466" y="538" text-anchor="middle" fill="#7c3aed" font-size="8">9 cleaned warehouse tables</text>
+
+  <!-- Arrow layer 2 → 3 -->
+  <line x1="584" y1="495" x2="600" y2="495" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowPurple)"/>
+
+  <!-- Layer 3: Staging Marts -->
+  <rect x="600" y="436" width="236" height="118" rx="6" fill="#211845" stroke="#8b5cf6" stroke-width="1"/>
+  <rect x="600" y="436" width="236" height="22" rx="6" fill="#6d28d9"/>
+  <text x="718" y="451" text-anchor="middle" fill="white" font-size="9" font-weight="700">3. STAGING MARTS</text>
+  <text x="718" y="465" text-anchor="middle" fill="#94a3b8" font-size="8">Materialised as Views → stg_marts</text>
+  <text x="718" y="478" text-anchor="middle" fill="#c4b5fd" font-size="8">stg_indices__rolling_stats</text>
+  <text x="718" y="490" text-anchor="middle" fill="#c4b5fd" font-size="8">stg_cmc__coin_daily</text>
+  <text x="718" y="502" text-anchor="middle" fill="#c4b5fd" font-size="8">stg_cmc__category_daily</text>
+  <text x="718" y="514" text-anchor="middle" fill="#c4b5fd" font-size="8">stg_fred_economic__indicators</text>
+  <text x="718" y="526" text-anchor="middle" fill="#c4b5fd" font-size="8">stg_fred_economic__state_affordability</text>
+  <text x="718" y="538" text-anchor="middle" fill="#7c3aed" font-size="8">5 analytics views</text>
+
+  <!-- Arrow layer 3 → 4 -->
+  <line x1="836" y1="495" x2="852" y2="495" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowPurple)"/>
+
+  <!-- Layer 4: Marts -->
+  <rect x="852" y="436" width="252" height="118" rx="6" fill="#211845" stroke="#8b5cf6" stroke-width="1"/>
+  <rect x="852" y="436" width="252" height="22" rx="6" fill="#5b21b6"/>
+  <text x="978" y="451" text-anchor="middle" fill="white" font-size="9" font-weight="700">4. MARTS (Fact Tables)</text>
+  <text x="978" y="465" text-anchor="middle" fill="#94a3b8" font-size="8">Materialised as Tables → marts</text>
+  <text x="978" y="478" text-anchor="middle" fill="#c4b5fd" font-size="8">fct_indices_daily_wide</text>
+  <text x="978" y="490" text-anchor="middle" fill="#c4b5fd" font-size="8">fct_fred_economic_indicators</text>
+  <text x="978" y="502" text-anchor="middle" fill="#c4b5fd" font-size="8">fct_fred_state_affordability</text>
+  <text x="978" y="514" text-anchor="middle" fill="#c4b5fd" font-size="8">fct_cmc_* (crypto mart tables)</text>
+  <text x="978" y="526" text-anchor="middle" fill="#c4b5fd" font-size="8">dim_* (dimension tables)</text>
+  <text x="978" y="538" text-anchor="middle" fill="#7c3aed" font-size="8">4+ fact + dimension tables</text>
+
+  <!-- ============ ARROW: dbt → Looker ============ -->
+  <line x1="600" y1="568" x2="600" y2="572" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arrowOrange)"/>
+
+  <!-- ============ ROW 5: SERVE / LOOKER STUDIO ============ -->
+  <rect x="80" y="578" width="1040" height="52" rx="8" fill="#2d1a00" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="300" y="601" text-anchor="middle" fill="#fbbf24" font-size="11" font-weight="700">LOOKER STUDIO</text>
+  <text x="300" y="618" text-anchor="middle" fill="#94a3b8" font-size="9">Dashboards served directly from BigQuery marts</text>
+  <rect x="440" y="584" width="200" height="36" rx="4" fill="#1a1000" stroke="#d97706" stroke-width="1"/>
+  <text x="540" y="599" text-anchor="middle" fill="#fbbf24" font-size="9" font-weight="600">Equity Dashboard</text>
+  <text x="540" y="612" text-anchor="middle" fill="#94a3b8" font-size="8">fct_indices_daily_wide</text>
+  <rect x="655" y="584" width="200" height="36" rx="4" fill="#1a1000" stroke="#d97706" stroke-width="1"/>
+  <text x="755" y="599" text-anchor="middle" fill="#fbbf24" font-size="9" font-weight="600">Crypto Dashboard</text>
+  <text x="755" y="612" text-anchor="middle" fill="#94a3b8" font-size="8">fct_cmc_* tables</text>
+  <rect x="870" y="584" width="234" height="36" rx="4" fill="#1a1000" stroke="#d97706" stroke-width="1"/>
+  <text x="987" y="599" text-anchor="middle" fill="#fbbf24" font-size="9" font-weight="600">Macro Dashboard</text>
+  <text x="987" y="612" text-anchor="middle" fill="#94a3b8" font-size="8">fct_fred_economic_indicators</text>
+
+  <!-- ============ ROW 6: INFRA + ORCHESTRATION ============ -->
+  <!-- Terraform -->
+  <rect x="80" y="658" width="200" height="68" rx="8" fill="#1a2535" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="180" y="678" text-anchor="middle" fill="#93c5fd" font-size="10" font-weight="700">TERRAFORM</text>
+  <text x="180" y="692" text-anchor="middle" fill="#94a3b8" font-size="8">Cloud Run Jobs (5 per source)</text>
+  <text x="180" y="704" text-anchor="middle" fill="#94a3b8" font-size="8">IAM · BigQuery · Artifact Registry</text>
+  <text x="180" y="716" text-anchor="middle" fill="#94a3b8" font-size="8">Secrets · Workload Identity</text>
+
+  <!-- Cloud Scheduler -->
+  <rect x="296" y="658" width="200" height="68" rx="8" fill="#1a2535" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="396" y="678" text-anchor="middle" fill="#93c5fd" font-size="10" font-weight="700">CLOUD SCHEDULER</text>
+  <text x="396" y="694" text-anchor="middle" fill="#94a3b8" font-size="8">Cron trigger per pipeline</text>
+  <text x="396" y="708" text-anchor="middle" fill="#fbbf24" font-size="10">↓</text>
+
+  <!-- Cloud Workflows -->
+  <rect x="512" y="658" width="200" height="68" rx="8" fill="#1a2535" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="612" y="678" text-anchor="middle" fill="#93c5fd" font-size="10" font-weight="700">CLOUD WORKFLOWS</text>
+  <text x="612" y="692" text-anchor="middle" fill="#94a3b8" font-size="8">Sequential job orchestration</text>
+  <text x="612" y="704" text-anchor="middle" fill="#94a3b8" font-size="8">extract → stg → wh → stg-mart → mart</text>
+  <text x="612" y="716" text-anchor="middle" fill="#94a3b8" font-size="8">YAML-defined · polling 30s</text>
+
+  <!-- Service Accounts -->
+  <rect x="728" y="658" width="200" height="68" rx="8" fill="#1a2535" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="828" y="678" text-anchor="middle" fill="#93c5fd" font-size="10" font-weight="700">SERVICE ACCOUNTS (5)</text>
+  <text x="828" y="692" text-anchor="middle" fill="#94a3b8" font-size="8">extraction-runner · dbt-runner</text>
+  <text x="828" y="704" text-anchor="middle" fill="#94a3b8" font-size="8">workflow-runner · scheduler-runner</text>
+  <text x="828" y="716" text-anchor="middle" fill="#94a3b8" font-size="8">github-actions-ci (WIF, no keys)</text>
+
+  <!-- Agent Registry -->
+  <rect x="944" y="658" width="176" height="68" rx="8" fill="#1a2535" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="1032" y="678" text-anchor="middle" fill="#93c5fd" font-size="10" font-weight="700">AGENT REGISTRY</text>
+  <text x="1032" y="692" text-anchor="middle" fill="#94a3b8" font-size="8">BigQuery audit log</text>
+  <text x="1032" y="704" text-anchor="middle" fill="#94a3b8" font-size="8">agent_snapshots</text>
+  <text x="1032" y="716" text-anchor="middle" fill="#94a3b8" font-size="8">skill_snapshots</text>
+
+  <!-- Flow arrows in orchestration row -->
+  <line x1="396" y1="693" x2="512" y2="693" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowOrange)"/>
+  <line x1="712" y1="693" x2="728" y2="693" stroke="#60a5fa" stroke-width="1"/>
+
+  <!-- ============ ROW 7: AI + CI/CD ============ -->
+  <!-- Claude Code -->
+  <rect x="80" y="756" width="220" height="68" rx="8" fill="#1f0a2f" stroke="#ec4899" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="190" y="776" text-anchor="middle" fill="#f9a8d4" font-size="10" font-weight="700">CLAUDE CODE (AI AGENT)</text>
+  <text x="190" y="791" text-anchor="middle" fill="#94a3b8" font-size="8">data-extractor · dbt-modeler agents</text>
+  <text x="190" y="805" text-anchor="middle" fill="#94a3b8" font-size="8">Writes code · Opens PRs · Deploys</text>
+  <text x="190" y="818" text-anchor="middle" fill="#94a3b8" font-size="8">Auto-bootstraps from /add-data-source</text>
+
+  <!-- Skills -->
+  <rect x="316" y="756" width="220" height="68" rx="8" fill="#1f0a2f" stroke="#ec4899" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="426" y="776" text-anchor="middle" fill="#f9a8d4" font-size="10" font-weight="700">SKILLS (7)</text>
+  <text x="426" y="791" text-anchor="middle" fill="#94a3b8" font-size="8">add-data-source · python-data-extraction</text>
+  <text x="426" y="805" text-anchor="middle" fill="#94a3b8" font-size="8">data-pipeline-patterns · fred-api</text>
+  <text x="426" y="818" text-anchor="middle" fill="#94a3b8" font-size="8">twelvedata-api · coinmarketcap-api · terraform</text>
+
+  <!-- GitHub + CI/CD -->
+  <rect x="552" y="756" width="220" height="68" rx="8" fill="#1f0a2f" stroke="#ec4899" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="662" y="776" text-anchor="middle" fill="#f9a8d4" font-size="10" font-weight="700">GITHUB + CI/CD</text>
+  <text x="662" y="791" text-anchor="middle" fill="#94a3b8" font-size="8">All Claude code → PR → Human review</text>
+  <text x="662" y="805" text-anchor="middle" fill="#94a3b8" font-size="8">Actions: ruff lint · sqlfluff lint</text>
+  <text x="662" y="818" text-anchor="middle" fill="#94a3b8" font-size="8">Docker build + push (WIF, not keys)</text>
+
+  <!-- Observability -->
+  <rect x="788" y="756" width="332" height="68" rx="8" fill="#1f0a2f" stroke="#ec4899" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="954" y="776" text-anchor="middle" fill="#f9a8d4" font-size="10" font-weight="700">OBSERVABILITY + QUALITY</text>
+  <text x="954" y="791" text-anchor="middle" fill="#94a3b8" font-size="8">Cloud Logging (job execution) · Cloud Monitoring (alerts)</text>
+  <text x="954" y="805" text-anchor="middle" fill="#94a3b8" font-size="8">dbt tests: 5 custom assertions (grain, quality)</text>
+  <text x="954" y="818" text-anchor="middle" fill="#94a3b8" font-size="8">BigQuery: column pruning · partitioning · max bytes billed</text>
+
+  <!-- ============ LEGEND ============ -->
+  <rect x="80" y="845" width="1040" height="58" rx="6" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="148" y="863" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="700">LEGEND</text>
+  <!-- Data flow -->
+  <line x1="96" y1="877" x2="128" y2="877" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="4,2"/>
+  <text x="134" y="880" fill="#94a3b8" font-size="8">API → Extraction</text>
+  <line x1="214" y1="877" x2="246" y2="877" stroke="#10b981" stroke-width="1.5"/>
+  <text x="252" y="880" fill="#94a3b8" font-size="8">Extraction → Raw</text>
+  <line x1="332" y1="877" x2="364" y2="877" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="370" y="880" fill="#94a3b8" font-size="8">dbt layer flow</text>
+  <line x1="450" y1="877" x2="482" y2="877" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="488" y="880" fill="#94a3b8" font-size="8">Scheduler → Workflow</text>
+  <!-- Color blocks -->
+  <rect x="586" y="870" width="10" height="10" rx="2" fill="#3b82f6"/>
+  <text x="601" y="880" fill="#94a3b8" font-size="8">GCP Infrastructure</text>
+  <rect x="670" y="870" width="10" height="10" rx="2" fill="#10b981"/>
+  <text x="685" y="880" fill="#94a3b8" font-size="8">BigQuery / Data</text>
+  <rect x="754" y="870" width="10" height="10" rx="2" fill="#8b5cf6"/>
+  <text x="769" y="880" fill="#94a3b8" font-size="8">dbt Transformation</text>
+  <rect x="848" y="870" width="10" height="10" rx="2" fill="#f59e0b"/>
+  <text x="863" y="880" fill="#94a3b8" font-size="8">BI / Output</text>
+  <rect x="922" y="870" width="10" height="10" rx="2" fill="#ec4899"/>
+  <text x="937" y="880" fill="#94a3b8" font-size="8">AI / Automation</text>
+
+  <!-- bottom note -->
+  <text x="600" y="895" text-anchor="middle" fill="#475569" font-size="8">Public repo · No static credentials · All infra via Terraform · All changes via GitHub PR</text>
+
+</svg>
