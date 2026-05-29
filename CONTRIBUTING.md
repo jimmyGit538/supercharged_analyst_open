@@ -12,13 +12,10 @@ This registers the `merge=ours` driver and installs a pre-push hook that hard-bl
 
 ### Recommended remote configuration
 
-This template is designed for a three-remote workflow:
-
 | Remote | Points to | Purpose |
 |--------|-----------|---------|
 | `upstream` | `github.com/jimmyGit538/supercharged_analyst_open` | Canonical public template — fetch framework updates from here |
 | `origin` | Your GitHub fork of `supercharged_analyst_open` | Push PR branches here |
-| `private` | Your private pipelines repo | Your own extraction jobs, dbt models, credentials |
 
 **First-time setup after forking:**
 
@@ -29,9 +26,6 @@ cd supercharged_analyst_open
 
 # Add the canonical public repo as upstream
 git remote add upstream https://github.com/jimmyGit538/supercharged_analyst_open.git
-
-# Add your private repo
-git remote add private https://github.com/<you>/supercharged_analyst_private.git
 
 # Run one-time setup
 bash scripts/setup.sh
@@ -54,6 +48,8 @@ git push origin my-contribution
 ```
 
 If you try to push a branch that touches `01_extraction/`, `02_dbt/`, or `infra/workflows/`, the pre-push hook will block it and tell you which commits are the problem.
+
+> **Advanced:** If you prefer working in a single directory across both repos, you can optionally add your private repo as a remote (`git remote add private <url>`) and cherry-pick directly between them.
 
 ### Pulling framework updates into your private repo
 
