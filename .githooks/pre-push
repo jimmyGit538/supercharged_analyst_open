@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Blocks pushes to the public repo that include commits touching private-only paths.
+# Install via: bash scripts/setup.sh
+
+REMOTE="$1"
+REMOTE_URL="$2"
+
+# Only enforce on pushes to the public repo
+if [[ "$REMOTE_URL" != *"supercharged_analyst_open"* ]]; then
+  exit 0
+fi
+
+PROTECTED_PATHS="01_extraction 02_dbt infra/workflows"
+
+while read local_ref local_sha remote_ref remote_sha; do
+  # Determine range of commits being pushed
+  if [[ "$remote_sha" == "0000000000000000000000000000000000000000" ]]; then
+    base=$(git merge-base "$local_sha" HEAD 2>/dev/null || echo "")
+    [ -z "$base" ] && continue
+    range="$base..$local_sha"
+  else
+    range="$remote_sha..$local_sha"
+  fi
+
+  for path in $PROTECTED_PATHS; do
+    hits=$(git log --oneline "$range" -- "$path" 2>/dev/null)
+    if [ -n "$hits" ]; then
+      echo ""
+      echo "ERROR: Push to public repo blocked — commits touch private path '$path':"
+      echo "$hits"
+      echo ""
+      echo "These commits belong in your private repo only."
+      echo "Fix: create a clean branch from upstream/main and cherry-pick only public changes."
+      echo ""
+      exit 1
+    fi
+  done
+done
+
+exit 0

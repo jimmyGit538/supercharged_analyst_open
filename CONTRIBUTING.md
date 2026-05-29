@@ -1,5 +1,64 @@
 # Contributing
 
+## Initial setup
+
+After cloning, run the setup script once:
+
+```bash
+bash scripts/setup.sh
+```
+
+This registers the `merge=ours` driver and installs a pre-push hook that hard-blocks any accidental push of private pipeline code to this repo.
+
+### Recommended remote configuration
+
+| Remote | Points to | Purpose |
+|--------|-----------|---------|
+| `upstream` | `github.com/jimmyGit538/supercharged_analyst_open` | Canonical public template — fetch framework updates from here |
+| `origin` | Your GitHub fork of `supercharged_analyst_open` | Push PR branches here |
+
+**First-time setup after forking:**
+
+```bash
+# Clone your fork
+git clone https://github.com/<you>/supercharged_analyst_open.git
+cd supercharged_analyst_open
+
+# Add the canonical public repo as upstream
+git remote add upstream https://github.com/jimmyGit538/supercharged_analyst_open.git
+
+# Run one-time setup
+bash scripts/setup.sh
+```
+
+### Contributing a change back to the public repo
+
+Never push branches that contain private pipeline commits. Instead, cherry-pick only the public changes onto a clean branch:
+
+```bash
+# Start from the latest public template
+git fetch upstream
+git checkout -b my-contribution upstream/main
+
+# Cherry-pick only the commits you want to share
+git cherry-pick <sha>
+
+# Push to your fork and open a PR against upstream/main
+git push origin my-contribution
+```
+
+If you try to push a branch that touches `01_extraction/`, `02_dbt/`, or `infra/workflows/`, the pre-push hook will block it and tell you which commits are the problem.
+
+> **Advanced:** If you prefer working in a single directory across both repos, you can optionally add your private repo as a remote (`git remote add private <url>`) and cherry-pick directly between them.
+
+### Pulling framework updates into your private repo
+
+```bash
+git fetch upstream
+git merge upstream/main
+# The merge=ours driver keeps your private paths (01_extraction/, 02_dbt/, etc.) intact
+```
+
 ## What belongs here vs your fork
 
 This repo is a template. Your own data sources — extraction jobs in `01_extraction/`, dbt models, and `terraform.tfvars` — belong in your fork, not in upstream PRs.
