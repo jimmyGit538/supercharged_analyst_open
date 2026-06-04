@@ -1,6 +1,6 @@
 # Supercharged Analyst — Claude Instructions
 
-Full strategy and architecture reference: `docs/supercharged_analyst_plan.md`
+Full strategy and architecture reference: `docs/architecture.md`
 
 ## Project Overview
 
@@ -11,6 +11,13 @@ GCP-native modern data stack for a small analytics team. The goal is to extract,
 ```
 01_extraction/                          # One subdirectory per data source (main.py, requirements.txt, Dockerfile)
 02_dbt/                                 # dbt Core project (staging views → mart tables in BigQuery)
+  Dockerfile                            # Docker image for the dbt runner
+  dbt_project.yml                       # dbt project configuration
+  packages.yml                          # dbt package dependencies
+  profiles.yml                          # dbt connection profiles
+  requirements.txt                      # Python dependencies for dbt runner
+  macros/
+    generate_schema_name.sql            # Custom schema name macro
   models/
     1_staging_warehouses/               # Staging views from raw warehouse sources
     2_warehouses/                       # Cleaned warehouse tables
@@ -32,7 +39,7 @@ infra/                                  # GCP infrastructure (Terraform + legacy
     terraform.tfvars.example            # Template — copy to terraform.tfvars and fill in values
     import.sh                           # One-time import of existing GCP resources into state
   workflows/                            # Cloud Workflow YAML definitions
-    indices_pipeline.yaml               # Orchestrates 5 Cloud Run Jobs in sequence
+    example_pipeline.yaml               # Example Cloud Workflow orchestrating Cloud Run Jobs in sequence
     create_jobs.sh                      # Legacy: manual job creation (superseded by Terraform)
     deploy.sh                           # Legacy: manual workflow deployment (superseded by Terraform)
   setup.sh                              # Legacy: one-time GCP bootstrap (superseded by Terraform)
@@ -41,10 +48,19 @@ infra/                                  # GCP infrastructure (Terraform + legacy
     loader.py                           # Runtime loader — reads .claude/ files, auto-snapshots on change
     snapshot.py                         # Snapshot engine — append-only audit log and diff utility
     manage.py                           # CLI: sync, diff, list commands
+    hook.py                             # Claude Code hook integration for auto-snapshotting
+    parser.py                           # Parses .claude/ markdown files into structured records
+    deploy.sh                           # Deploys the agent registry to GCP
     example_agent.py                    # Reference implementation for bootstrapping an agent from the registry
     requirements.txt                    # Dependencies: google-cloud-bigquery, anthropic, python-dotenv
 docs/                                   # Strategy documents and reference material
+  architecture.md                       # Full strategy and architecture reference
+  system_overview.svg                   # System architecture diagram
+scripts/                                # Utility shell scripts
+  setup.sh                              # One-time environment/project setup script
 .github/workflows/                      # CI only: lint + docker build+push (NOT pipeline scheduling)
+  ci.yml                                # Lint, test, and Docker build+push on PR/push
+  deploy.yml                            # Deployment workflow
 ```
 
 ## Stack
