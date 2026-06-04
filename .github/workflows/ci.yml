@@ -25,6 +25,9 @@ jobs:
       - name: Lint SQL (dbt)
         run: sqlfluff lint 02_dbt/models/ --dialect bigquery
 
+      - name: Validate CLAUDE.md
+        run: python3 scripts/validate_claude_md.py
+
   docker-build:
     name: Docker Build
     runs-on: ubuntu-latest
