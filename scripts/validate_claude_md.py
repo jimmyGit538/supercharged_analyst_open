@@ -33,6 +33,26 @@ YAML_TOKEN_RE = re.compile(r"^\s+(\w[\w\-.]+\.ya?ml)\b", re.MULTILINE)
 EXTRACTION_SOURCE_RE = re.compile(r"01_extraction/(\w[\w\-]*)/")
 
 
+def extract_workflows_yaml_tokens(dir_block: str) -> set:
+    """Return YAML filenames only from the infra/workflows/ subsection of the dir block."""
+    tokens = set()
+    in_workflows = False
+    for line in dir_block.splitlines():
+        # Enter the workflows/ subsection (exactly 2-space indent)
+        if re.match(r"^  workflows/", line):
+            in_workflows = True
+            continue
+        if in_workflows:
+            # Children of workflows/ have 4+ spaces; anything shallower ends the section
+            if re.match(r"^\s{4,}\S", line):
+                m = YAML_TOKEN_RE.match(line)
+                if m:
+                    tokens.add(m.group(1))
+            else:
+                in_workflows = False
+    return tokens
+
+
 def find_repo_root() -> Path:
     for p in [Path(__file__).resolve().parent, *Path(__file__).resolve().parents]:
         if (p / "CLAUDE.md").exists():
@@ -120,7 +140,7 @@ def main() -> int:
         print(f"[PASS] Extraction sources: {len(real_sources)} source(s), all documented")
 
     # --- Check D: workflow YAMLs — bidirectional check ---
-    listed_yaml = set(YAML_TOKEN_RE.findall(dir_block))
+    listed_yaml = extract_workflows_yaml_tokens(dir_block)
     workflows_dir = repo_root / "infra" / "workflows"
     disk_yaml = {
         p.name
