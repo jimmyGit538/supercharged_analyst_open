@@ -1,0 +1,5 @@
+# Patterns listed here are excluded from CLAUDE.md drift checks (one fnmatch pattern per line).
+# Use this to suppress false positives for files that are intentionally undocumented.
+# Example:
+#   infra/terraform/experimental.tf
+#   01_extraction/scratch/
