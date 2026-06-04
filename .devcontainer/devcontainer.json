@@ -1,0 +1,23 @@
+{
+  "name": "Supercharged Analyst",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  "features": {
+    "ghcr.io/devcontainers/features/terraform:1": {},
+    "ghcr.io/devcontainers/features/google-cloud-cli:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "postCreateCommand": "bash scripts/setup.sh --local-dev",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbt-labs.dbt-power-user",
+        "hashicorp.terraform",
+        "ms-python.python",
+        "ms-python.ruff"
+      ],
+      "settings": {
+        "dbt.projectsDir": "02_dbt"
+      }
+    }
+  }
+}
