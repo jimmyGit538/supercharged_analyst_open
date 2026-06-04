@@ -128,6 +128,46 @@ The skill walks you through:
 
 After the skill completes, open a PR — CI will lint and push Docker images automatically.
 
+## dbt Local Development
+
+The dbt project lives in `02_dbt/` with a non-standard `profiles.yml` location. Use the `dev` target, which authenticates via your personal GCP credentials and writes to the `dbt_dev` BigQuery dataset (isolated from production).
+
+**Prerequisites:**
+- `BQ_PROJECT` set in your `.env`
+- `gcloud auth application-default login` completed
+
+**First-time setup** (handled by `scripts/setup.sh` if you ran it):
+```bash
+pip install -r 02_dbt/requirements.txt   # installs dbt-bigquery
+dbt deps --profiles-dir 02_dbt --project-dir 02_dbt  # installs dbt_utils package
+```
+
+**Running dbt commands** (from the repo root):
+```bash
+# Verify BigQuery connection
+dbt debug --profiles-dir 02_dbt --project-dir 02_dbt
+
+# Compile SQL without executing
+dbt compile --profiles-dir 02_dbt --project-dir 02_dbt
+
+# Run all models
+dbt run --profiles-dir 02_dbt --project-dir 02_dbt
+
+# Run a single model
+dbt run -s stg_twelvedata__indices_prices --profiles-dir 02_dbt --project-dir 02_dbt
+
+# Run tests
+dbt test --profiles-dir 02_dbt --project-dir 02_dbt
+```
+
+If you source your `.env` (which sets `DBT_PROFILES_DIR=02_dbt`), you can drop `--profiles-dir`:
+```bash
+source .env
+dbt run --project-dir 02_dbt
+```
+
+Models land in the `dbt_dev` dataset in BigQuery under your GCP project.
+
 ## Project Structure
 
 ```

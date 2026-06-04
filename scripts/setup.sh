@@ -18,5 +18,15 @@ cp "$HOOK_SRC" "$HOOK_DST"
 chmod +x "$HOOK_DST"
 echo "pre-push hook installed"
 
+# Install dbt and its BigQuery adapter
+echo "Installing dbt dependencies..."
+pip install -r 02_dbt/requirements.txt
+
+# Install dbt packages (dbt_utils etc.) defined in packages.yml
+echo "Installing dbt packages..."
+dbt deps --profiles-dir 02_dbt --project-dir 02_dbt
+
 echo ""
 echo "Setup complete. See CONTRIBUTING.md for the recommended remote configuration."
+echo "Next: copy .env.example to .env, fill in BQ_PROJECT, then run 'gcloud auth application-default login'."
+echo "Verify your dbt connection with: dbt debug --profiles-dir 02_dbt --project-dir 02_dbt"
