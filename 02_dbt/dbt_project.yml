@@ -19,13 +19,13 @@ models:
   supercharged_analyst:
     1_staging_warehouses:
       +materialized: view
-      +schema: staging
+      +schema: stg_warehouses
     2_warehouses:
       +materialized: table
       +schema: warehouses
     3_staging_marts:
       +materialized: view
-      +schema: staging
+      +schema: stg_marts
     4_marts:
       +materialized: table
       +schema: marts

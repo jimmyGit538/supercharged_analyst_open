@@ -8,7 +8,7 @@ A GCP-native modern data stack template for small analytics teams. Fork this rep
 - **dbt transformation pipeline** — 4-layer model architecture (staging → warehouse → staging marts → marts) landing in BigQuery
 - **Cloud Workflows orchestration** — 5-stage pipeline per source, triggered by Cloud Scheduler
 - **Terraform-managed infrastructure** — all GCP resources declared as code, one config file to add a new source
-- **GitHub Actions CI** — lints Python + SQL and pushes Docker images to Artifact Registry on every PR
+- **GitHub Actions CI** — lints Python + SQL and builds every Docker image on each PR, then pushes to Artifact Registry on merge to `main`
 - **Claude Code agents** — AI-powered `/add-data-source` skill that scaffolds a full new pipeline end-to-end
 - **Agent Registry** — append-only BigQuery audit log of every agent and skill version
 
@@ -71,7 +71,8 @@ gcloud services enable \
 cd infra/terraform
 cp terraform.tfvars.example terraform.tfvars
 # Edit terraform.tfvars — set project_id, region, github_repo
-# Leave sources = {} for now; you'll add sources in step 7
+# Set sources = {} for now — comment out the fred-economic block. It references a
+# Secret Manager secret you haven't created yet, and step 9 turns it back on.
 ```
 
 ### 6. Provision GCP infrastructure
@@ -88,29 +89,101 @@ This creates:
 - BigQuery datasets: `raw`, `stg_warehouses`, `warehouses`, `stg_marts`, `marts`, `agent_registry`
 - Artifact Registry repository for Docker images
 
-### 7. Set up the Agent Registry (optional but recommended)
+### 6a. Grant BigQuery dataset access
+
+**Do not skip this step.** Terraform creates the datasets and the service accounts, but it
+does *not* grant dataset-level access — the `google_bigquery_dataset_access` resource has
+no usable import path, so those entries are owned by `infra/setup.sh` instead (see the
+comment block in `infra/terraform/bigquery.tf`).
 
 ```bash
-cd ../../infra/agent_registry
-# Provision BigQuery tables
-bq query --use_legacy_sql=false < schema.sql
-# Sync agent/skill definitions to BigQuery
-python manage.py sync
+cd ../..                              # back to the repo root
+export PROJECT_ID="your-gcp-project-id"
+export REGION="us-central1"
+export GITHUB_REPO="your-org/your-repo"
+bash infra/setup.sh
 ```
+
+This grants `extraction-runner` WRITER on `raw`, and `dbt-runner` READER on `raw` plus
+WRITER on `stg_warehouses`, `warehouses`, `stg_marts`, and `marts`.
+
+Without it, everything deploys cleanly and then fails at *runtime*: extraction jobs return
+a BigQuery 403 on their first write, and dbt jobs fail to read `raw`. Verify with:
+
+```bash
+bq show --format=prettyjson "${PROJECT_ID}:raw" | grep -A2 extraction-runner
+```
+
+### 7. Set up the Agent Registry (optional but recommended)
+
+From the repo root, with `BQ_PROJECT` and `BQ_DATASET` set in your `.env`:
+
+```bash
+pip install -r infra/agent_registry/requirements.txt
+bash infra/agent_registry/deploy.sh
+```
+
+The script provisions the BigQuery tables (substituting the `{PROJECT}`/`{DATASET}`
+placeholders in `schema.sql`) and seeds the agent and skill definitions. Run it directly —
+`schema.sql` is a template, not runnable SQL, and `manage.py` must be invoked as a module
+from `infra/` (`python -m agent_registry.manage`), both of which the script handles.
 
 ### 8. Configure GitHub Actions CI
 
 In your GitHub repo settings, add:
 
 **Secrets:**
-- `WORKLOAD_IDENTITY_PROVIDER` — from `terraform output workload_identity_provider`
-- `SERVICE_ACCOUNT` — from `terraform output github_actions_sa_email`
+- `WORKLOAD_IDENTITY_PROVIDER` — from `terraform output wif_provider`
+- `SERVICE_ACCOUNT` — from `terraform output ci_service_account`
 
 **Variables:**
 - `GCP_PROJECT_ID` — your GCP project ID
 - `GCP_REGION` — e.g. `us-central1`
 
-### 9. Add your first data source
+### 9. Run the reference source (FRED)
+
+The template ships one complete, working source: **FRED** (Federal Reserve Economic Data)
+— 118 US economic series (16 national macro indicators plus state-level house prices and
+wages). It needs no paid account and exercises every layer of the stack, so run it first
+to prove the pipeline before writing your own.
+
+Create the API key secret **before** `terraform apply` — `infra/terraform/secrets.tf`
+reads it as a `data` source, so the plan fails if it doesn't exist:
+
+```bash
+# Free key, instant: https://fredaccount.stlouisfed.org/apikeys
+gcloud secrets create FRED_API_KEY --replication-policy="automatic" --project "$PROJECT_ID"
+echo -n "your-fred-api-key" | gcloud secrets versions add FRED_API_KEY --data-file=- --project "$PROJECT_ID"
+```
+
+The secret name must be `FRED_API_KEY` — Terraform mounts secrets by matching the secret
+name to the environment variable name.
+
+Then enable the source and apply:
+
+```bash
+cd infra/terraform
+# Uncomment the fred-economic block in terraform.tfvars (see terraform.tfvars.example)
+terraform plan
+terraform apply
+```
+
+This creates `fred-economic-extract-daily` plus the four dbt jobs, the `fred-economic-pipeline`
+Cloud Workflow, and a daily 06:00 scheduler trigger. Once the images are in Artifact
+Registry (see step 8), kick off a run:
+
+```bash
+gcloud workflows run fred-economic-pipeline --location="$REGION"
+```
+
+What lands: `raw.fred_economic_observations` → `stg_warehouses` → `warehouses` →
+`stg_marts` → `marts.fct_fred_economic_indicators` and `marts.fct_fred_state_affordability`,
+both ready to point Looker Studio at.
+
+Extraction is incremental — each series carries its own date watermark, and the first run
+backfills full history (hence `timeout = "3600s"` on the job).
+
+### 10. Add your own data source
 
 Open Claude Code in this repo and run:
 
@@ -126,7 +199,11 @@ The skill walks you through:
 5. Generates `infra/workflows/<source>_pipeline.yaml`
 6. Adds the entry to `terraform.tfvars`
 
-After the skill completes, open a PR — CI will lint and push Docker images automatically.
+`01_extraction/fred_economic/` and the `fred_economic` dbt models are the reference
+implementation to copy from.
+
+After the skill completes, open a PR — CI lints and builds the Docker images. Once the PR
+merges to `main`, the Deploy workflow pushes them to Artifact Registry.
 
 ## dbt Local Development
 
@@ -154,7 +231,7 @@ dbt compile --profiles-dir 02_dbt --project-dir 02_dbt
 dbt run --profiles-dir 02_dbt --project-dir 02_dbt
 
 # Run a single model
-dbt run -s stg_twelvedata__indices_prices --profiles-dir 02_dbt --project-dir 02_dbt
+dbt run -s stg_fred_economic__observations --profiles-dir 02_dbt --project-dir 02_dbt
 
 # Run tests
 dbt test --profiles-dir 02_dbt --project-dir 02_dbt
@@ -172,12 +249,13 @@ Models land in the `dbt_dev` dataset in BigQuery under your GCP project.
 
 ```
 01_extraction/          # One subdirectory per data source (main.py, Dockerfile, requirements.txt)
+  fred_economic/        # Reference source — FRED economic series
 02_dbt/                 # dbt Core project
   models/
-    1_staging_warehouses/   # Staging views from raw
-    2_warehouses/           # Cleaned warehouse tables
-    3_staging_marts/        # Staging views for mart layer
-    4_marts/                # Fact and dimension tables
+    1_staging_warehouses/   # Staging views from raw          → stg_warehouses
+    2_warehouses/           # Cleaned warehouse tables        → warehouses
+    3_staging_marts/        # Staging views for mart layer    → stg_marts
+    4_marts/                # Fact and dimension tables       → marts
 infra/
   terraform/            # All GCP infrastructure as code
   workflows/            # Cloud Workflow YAML definitions (one per source)

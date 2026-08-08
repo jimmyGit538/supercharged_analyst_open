@@ -25,8 +25,8 @@ variable "sources" {
     frequency        = string                    # Run cadence: daily, hourly, etc.
     schedule         = string                    # Cron expression for Cloud Scheduler
     schedule_tz      = optional(string, "UTC")   # Scheduler timezone
-    env_vars         = optional(map(string), {})        # Extra env vars for the extraction job
-    secrets          = optional(map(string), {})        # Secret name → version (e.g. "TWELVEDATA_API_KEY" = "latest")
-    timeout          = optional(string, "600s")         # Cloud Run Job timeout (default 10 min; use "3600s" for long extractors)
+    env_vars         = optional(map(string), {}) # Extra env vars for the extraction job
+    secrets          = optional(map(string), {}) # Secret name → version (e.g. "TWELVEDATA_API_KEY" = "latest")
+    timeout          = optional(string, "600s")  # Cloud Run Job timeout (default 10 min; use "3600s" for long extractors)
   }))
 }

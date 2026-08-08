@@ -8,7 +8,7 @@ supercharged_analyst:
       dataset: dbt_dev
       threads: 4
       timeout_seconds: 300
-      location: US
+      location: us-central1
     prod:
       type: bigquery
       method: service-account-impersonation
@@ -17,7 +17,7 @@ supercharged_analyst:
       impersonate_service_account: "{{ env_var('DBT_SERVICE_ACCOUNT') }}"
       threads: 4
       timeout_seconds: 300
-      location: US
+      location: us-central1
     cloudrun:
       type: bigquery
       method: oauth

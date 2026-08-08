@@ -4,11 +4,17 @@ locals {
   # Pipeline datasets live in the same region as Cloud Run Jobs.
   # agent_registry was created in US multiregion — must match to avoid destroy/recreate.
   dataset_locations = {
-    raw              = var.region
-    staging          = var.region
-    warehouses       = var.region
-    marts            = var.region
-    agent_registry   = "US"
+    raw            = var.region
+    stg_warehouses = var.region
+    warehouses     = var.region
+    stg_marts      = var.region
+    marts          = var.region
+    agent_registry = "US"
+
+    # Legacy: predates the stg_warehouses/stg_marts split. Retained only as the
+    # default connection dataset for the `cloudrun` dbt target (02_dbt/profiles.yml)
+    # — every model overrides it via +schema, so nothing is materialised here.
+    staging = var.region
   }
 }
 
@@ -28,4 +34,4 @@ resource "google_bigquery_dataset" "datasets" {
 # Current access (configured by setup.sh):
 #   - extraction-runner: WRITER on raw
 #   - dbt-runner:        READER on raw
-#   - dbt-runner:        WRITER on staging, warehouses, marts
+#   - dbt-runner:        WRITER on stg_warehouses, warehouses, stg_marts, marts

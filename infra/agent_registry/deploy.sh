@@ -62,6 +62,6 @@ python -m agent_registry.manage upsert \
   --notes "initial seed"
 
 echo ""
-echo "Agent registry ready. Verify with:"
-echo "  python -m infra.agent_registry.manage list --type agent --name data-extractor"
-echo "  python -m infra.agent_registry.manage list --type skill --name python-data-extraction"
+echo "Agent registry ready. Verify from the infra/ directory with:"
+echo "  python -m agent_registry.manage list --type agent --name data-extractor"
+echo "  python -m agent_registry.manage list --type skill --name python-data-extraction"

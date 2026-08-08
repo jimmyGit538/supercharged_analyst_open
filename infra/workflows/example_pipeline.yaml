@@ -6,7 +6,7 @@
 # Runs five Cloud Run Jobs in sequence:
 #   1. {source}-extract-daily           (extraction → raw dataset)
 #   2. {source}-dbt-stg-warehouse-daily (dbt 1_staging_warehouses → stg_warehouses)
-#   3. {source}-dbt-warehouse-daily     (dbt seed + 2_warehouses → warehouses)
+#   3. {source}-dbt-warehouse-daily     (dbt 2_warehouses → warehouses)
 #   4. {source}-dbt-stg-marts-daily     (dbt 3_staging_marts → stg_marts)
 #   5. {source}-dbt-mart-daily          (dbt 4_marts → marts)
 #

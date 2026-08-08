@@ -10,6 +10,7 @@ GCP-native modern data stack for a small analytics team. The goal is to extract,
 
 ```
 01_extraction/                          # One subdirectory per data source (main.py, requirements.txt, Dockerfile)
+  fred_economic/                        # 01_extraction/fred_economic/ — reference source, FRED series → raw.fred_economic_observations
 02_dbt/                                 # dbt Core project (staging views → mart tables in BigQuery)
   Dockerfile                            # Docker image for the dbt runner
   dbt_project.yml                       # dbt project configuration
@@ -40,6 +41,7 @@ infra/                                  # GCP infrastructure (Terraform + legacy
     import.sh                           # One-time import of existing GCP resources into state
   workflows/                            # Cloud Workflow YAML definitions
     example_pipeline.yaml               # Example Cloud Workflow orchestrating Cloud Run Jobs in sequence
+    fred-economic_pipeline.yaml         # Reference pipeline for the fred-economic source
     create_jobs.sh                      # Legacy: manual job creation (superseded by Terraform)
     deploy.sh                           # Legacy: manual workflow deployment (superseded by Terraform)
   setup.sh                              # Legacy: one-time GCP bootstrap (superseded by Terraform)
@@ -125,9 +127,11 @@ Examples:
 
 **BigQuery datasets**
 - `raw` — landing zone for extraction jobs (Data Editor access only)
-- `staging` — dbt staging views
-- `warehouses` - dbt warehouse tables (cleaned extraction)
-- `marts` — dbt mart tables (source for Looker Studio)
+- `stg_warehouses` — dbt staging views over `raw` (layer `1_staging_warehouses`)
+- `warehouses` — dbt warehouse tables, cleaned extraction (layer `2_warehouses`)
+- `stg_marts` — dbt staging views feeding the mart layer (layer `3_staging_marts`)
+- `marts` — dbt mart tables, source for Looker Studio (layer `4_marts`)
+- `agent_registry` — append-only agent/skill snapshot history (US multi-region)
 
 ## Infrastructure (Terraform)
 
@@ -152,7 +156,7 @@ Terraform auto-generates 5 Cloud Run Jobs per source from the `sources` map:
 | Account | Purpose |
 |---|---|
 | `extraction-runner` | Runs extraction Cloud Run Jobs, writes to `raw` dataset |
-| `dbt-runner` | Runs dbt Cloud Run Jobs, reads `raw`, writes `staging`/`warehouses`/`marts` |
+| `dbt-runner` | Runs dbt Cloud Run Jobs, reads `raw`, writes `stg_warehouses`/`warehouses`/`stg_marts`/`marts` |
 | `github-actions-ci` | Pushes Docker images to Artifact Registry (via WIF, no keys) |
 | `workflow-runner` | Executes Cloud Workflows, invokes Cloud Run Jobs |
 | `scheduler-runner` | Triggers Cloud Workflows on schedule |

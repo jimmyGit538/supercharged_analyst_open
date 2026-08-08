@@ -121,7 +121,7 @@ gcloud iam service-accounts add-iam-policy-binding "$CI_SA" \
   --member="principalSet://iam.googleapis.com/${WIF_POOL_NAME}/attribute.repository/${GITHUB_REPO}"
 
 # ── BigQuery datasets ──────────────────────────────────────────────────────────
-for dataset in raw staging warehouses marts agent_registry; do
+for dataset in raw stg_warehouses warehouses stg_marts marts staging agent_registry; do
   bq --project_id="$PROJECT_ID" mk \
     --dataset \
     --location="$REGION" \
@@ -171,8 +171,8 @@ gcloud iam service-accounts create dbt-runner \
 
 DBT_SA="dbt-runner@${PROJECT_ID}.iam.gserviceaccount.com"
 
-# dbt needs to create/replace tables in staging, warehouses, and marts datasets
-for dataset in staging warehouses marts; do
+# dbt needs to create/replace relations in every layer dataset it materialises into
+for dataset in stg_warehouses warehouses stg_marts marts; do
   TMPFILE=$(mktemp /tmp/bq_${dataset}_acl.XXXXXX.json)
   bq show --format=json "${PROJECT_ID}:${dataset}" > "$TMPFILE"
   python3 - "$TMPFILE" "${DBT_SA}" <<'PYEOF'
