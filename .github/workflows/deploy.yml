@@ -3,15 +3,52 @@ name: Deploy
 on:
   push:
     branches: [main]
+  # Allows re-pushing images without a merge — useful after a failed run or when
+  # you have just finished GCP setup and want images without touching main.
+  workflow_dispatch:
 
 jobs:
+  # Forks and fresh clones of this template have no GCP secrets until the
+  # contributor completes setup (see the Quick Start in README.md), so the push
+  # job must skip cleanly rather than fail.
+  #
+  # This gate exists because the `secrets` context is NOT available in a
+  # job-level `if:` — only github, needs, vars and inputs are. Using it there
+  # makes GitHub reject the whole workflow at evaluation time, which fails the
+  # run in 0s with no jobs and no logs. `secrets` IS allowed in a step, so the
+  # check happens here and is published as an output that `needs` can read.
+  check-config:
+    name: Check GCP configuration
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        env:
+          WIF_PROVIDER: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
+          SERVICE_ACCOUNT: ${{ secrets.SERVICE_ACCOUNT }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+        run: |
+          missing=""
+          [ -n "$WIF_PROVIDER" ]   || missing="$missing WORKLOAD_IDENTITY_PROVIDER(secret)"
+          [ -n "$SERVICE_ACCOUNT" ] || missing="$missing SERVICE_ACCOUNT(secret)"
+          [ -n "$GCP_REGION" ]     || missing="$missing GCP_REGION(variable)"
+          [ -n "$GCP_PROJECT_ID" ] || missing="$missing GCP_PROJECT_ID(variable)"
+
+          if [ -z "$missing" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "GCP is configured — images will be built and pushed."
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Skipping image push::Not configured yet. Missing:$missing. See README.md step 8."
+          fi
+
   docker-push:
     name: Build and Push Images
     runs-on: ubuntu-latest
-    # Skip this job when GCP secrets are not configured.
-    # Forks and fresh clones of this template won't have these secrets until
-    # the contributor completes GCP setup (see the Quick Start in README.md).
-    if: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER != '' }}
+    needs: check-config
+    if: needs.check-config.outputs.configured == 'true'
     permissions:
       contents: read
       id-token: write   # required for Workload Identity Federation

@@ -140,6 +140,12 @@ In your GitHub repo settings, add:
 - `GCP_PROJECT_ID` — your GCP project ID
 - `GCP_REGION` — e.g. `us-central1`
 
+All four are required. Until they are all set, the Deploy workflow reports success but
+**skips the image push** — it logs a notice naming what is missing. Nothing reaches
+Artifact Registry until this step is done, so `terraform apply` will not be able to pull
+`:latest`. You can re-run the push without a merge from the Actions tab
+(Deploy → Run workflow) once the values are in place.
+
 ### 9. Run the reference source (FRED)
 
 The template ships one complete, working source: **FRED** (Federal Reserve Economic Data)

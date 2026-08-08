@@ -1,0 +1,8 @@
+# Keep local build state out of the image — `COPY . .` would otherwise bake in a
+# stale manifest or a dbt_packages/ tree that `dbt deps` is about to rebuild,
+# making local builds differ from CI builds.
+target/
+dbt_packages/
+logs/
+package-lock.yml
+.user.yml
