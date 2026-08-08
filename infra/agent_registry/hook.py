@@ -4,10 +4,15 @@ agent_registry/hook.py
 Claude Code PostToolUse hook — triggered after Write or Edit tool calls.
 Reads the hook payload from stdin and:
 
-  - if the edited file is under .claude/ or is CLAUDE.md, snapshots agent and
-    skill definitions to BigQuery;
+  - if the edited file is an agent or skill definition (.claude/agents/<name>.md
+    or .claude/skills/<name>/SKILL.md), snapshots THAT ONE definition to
+    BigQuery;
   - if the edited file is structural (Terraform, workflows, extractors, dbt
     models), reminds Claude to check CLAUDE.md's Directory Structure section.
+
+Set AGENT_REGISTRY_HOOK_DISABLED=1 to stop the hook writing snapshots at all —
+useful while testing or making bulk edits. Catch up afterwards with
+`python -m agent_registry.manage sync` from infra/.
 
 Design rules for this file:
 
@@ -92,8 +97,34 @@ def relative_to_project(file_path: Path) -> str | None:
         return None
 
 
-def sync_registry() -> None:
-    """Snapshot .claude/ definitions to BigQuery. Never raises."""
+def classify_definition(file_path: Path) -> tuple[str, str] | None:
+    """Map an edited .claude/ file to ("agent"|"skill", name), or None.
+
+    Only these two shapes are registry definitions:
+        .claude/agents/<name>.md
+        .claude/skills/<name>/SKILL.md
+    Anything else under .claude/ (settings.json, worktrees, scratch files) is
+    not a definition and must not trigger a snapshot.
+    """
+    rel = relative_to_project(file_path)
+    if rel is None:
+        return None
+
+    parts = rel.split("/")
+    if len(parts) == 4 and parts[:2] == [".claude", "skills"] and parts[3] == "SKILL.md":
+        return "skill", parts[2]
+    if len(parts) == 3 and parts[:2] == [".claude", "agents"] and parts[2].endswith(".md"):
+        return "agent", parts[2][: -len(".md")]
+    return None
+
+
+def sync_registry(kind: str, name: str) -> None:
+    """Snapshot ONE definition to BigQuery. Never raises.
+
+    Deliberately not `manage sync`: that loads every agent and skill, issuing a
+    get_last_snapshot query per definition — 14 BigQuery queries for a one-file
+    edit. The hook already knows which file changed, so it snapshots only that.
+    """
     # infra/ on sys.path so `agent_registry` resolves as a package — the same
     # requirement deploy.sh satisfies by cd'ing to infra/ before running
     # `python -m agent_registry.manage`.
@@ -111,29 +142,32 @@ def sync_registry() -> None:
         # Registry not configured yet (fresh fork). Stay silent.
         return
 
-    # The loader prints a line per agent and skill. Capture it — hook stdout is
-    # the JSON response channel, and 15 lines of chatter per .claude/ edit is
-    # noise, not signal.
+    # The loader prints a line per definition. Capture it — hook stdout is the
+    # JSON response channel, and raw chatter there is noise, not signal.
     captured = io.StringIO()
     try:
-        from agent_registry.manage import cmd_sync
+        from agent_registry.loader import load_agent, load_skill
 
+        load = load_agent if kind == "agent" else load_skill
         with contextlib.redirect_stdout(captured):
-            cmd_sync(None)
+            load(name)
     except ImportError as exc:
         note(f"could not import agent_registry ({exc}). Skipped snapshot.")
     except Exception as exc:  # noqa: BLE001 — auth, network and BigQuery errors
-        note(f"snapshot skipped: {type(exc).__name__}: {exc}")
+        note(f"snapshot skipped for {kind} '{name}': {type(exc).__name__}: {exc}")
     else:
-        summary = next(
+        # loader prints "[registry] '<name>' changed — snapshot vN written ..."
+        # only when a new version was actually recorded. Silence means unchanged.
+        written = next(
             (
                 line
-                for line in reversed(captured.getvalue().splitlines())
-                if line.startswith("[sync]")
+                for line in captured.getvalue().splitlines()
+                if line.startswith("[registry]")
             ),
-            "[sync] complete",
+            None,
         )
-        emit({"systemMessage": summary, "suppressOutput": True})
+        if written:
+            emit({"systemMessage": written, "suppressOutput": True})
 
 
 def main() -> None:
@@ -142,11 +176,14 @@ def main() -> None:
     if file_path is None:
         return
 
-    is_claude_file = any(p.name == ".claude" for p in file_path.parents)
-    is_claude_md = file_path.name == "CLAUDE.md"
-
-    if is_claude_file or is_claude_md:
-        sync_registry()
+    definition = classify_definition(file_path)
+    if definition is not None:
+        if os.getenv("AGENT_REGISTRY_HOOK_DISABLED"):
+            # Escape hatch for tests, experiments and bulk edits — set this to
+            # stop the hook writing snapshots, then run
+            # `python -m agent_registry.manage sync` from infra/ when ready.
+            return
+        sync_registry(*definition)
         return
 
     rel_posix = relative_to_project(file_path)

@@ -6,7 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"$CLAUDE_PROJECT_DIR/infra/agent_registry/hook.py\"",
+            "command": "\"${CLAUDE_PYTHON:-python}\" \"$CLAUDE_PROJECT_DIR/infra/agent_registry/hook.py\"",
+            "shell": "bash",
             "statusMessage": "Syncing agent registry...",
             "timeout": 30
           }

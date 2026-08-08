@@ -8,10 +8,11 @@ Called automatically by loader.py whenever a file change is detected.
 Can also be called manually for diff/list operations.
 """
 
-import os
 import difflib
 import logging
+import os
 from datetime import datetime, timezone
+
 from dotenv import load_dotenv
 from google.cloud import bigquery
 
@@ -22,9 +23,22 @@ logger = logging.getLogger(__name__)
 _BQ_PROJECT = os.getenv("BQ_PROJECT")
 _BQ_DATASET = os.getenv("BQ_DATASET")
 
+# Project rule (CLAUDE.md): every BigQuery query sets maximum_bytes_billed.
+# These reads run on every agent/skill edit via the PostToolUse hook, so an
+# unbounded scan here would be charged repeatedly during normal editing.
+_MAX_BYTES_BILLED = 1 * 1024**3  # 1 GiB
+
 
 def _client() -> bigquery.Client:
     return bigquery.Client(project=_BQ_PROJECT)
+
+
+def _query_config(name: str) -> bigquery.QueryJobConfig:
+    """Parameterised, cost-capped config for the snapshot read queries."""
+    return bigquery.QueryJobConfig(
+        query_parameters=[bigquery.ScalarQueryParameter("name", "STRING", name)],
+        maximum_bytes_billed=_MAX_BYTES_BILLED,
+    )
 
 
 # ── Snapshot writer ────────────────────────────────────────────────────────────
@@ -80,10 +94,7 @@ def get_last_snapshot(name: str, table: str) -> dict | None:
         ORDER BY snapshotted_at DESC
         LIMIT 1
     """
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[bigquery.ScalarQueryParameter("name", "STRING", name)]
-    )
-    rows = list(_client().query(sql, job_config=job_config).result())
+    rows = list(_client().query(sql, job_config=_query_config(name)).result())
     return dict(rows[0]) if rows else None
 
 
@@ -98,10 +109,7 @@ def diff(name: str, table: str, n_context: int = 5) -> str:
         ORDER BY snapshotted_at DESC
         LIMIT 2
     """
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[bigquery.ScalarQueryParameter("name", "STRING", name)]
-    )
-    rows = list(_client().query(sql, job_config=job_config).result())
+    rows = list(_client().query(sql, job_config=_query_config(name)).result())
 
     if len(rows) < 2:
         return f"(fewer than 2 snapshots exist for '{name}' — nothing to diff)"
@@ -128,8 +136,5 @@ def list_snapshots(name: str, table: str, limit: int = 20) -> list[dict]:
         ORDER BY snapshotted_at DESC
         LIMIT {limit}
     """
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[bigquery.ScalarQueryParameter("name", "STRING", name)]
-    )
-    rows = list(_client().query(sql, job_config=job_config).result())
+    rows = list(_client().query(sql, job_config=_query_config(name)).result())
     return [dict(r) for r in rows]

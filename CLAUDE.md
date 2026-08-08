@@ -181,9 +181,29 @@ The `infra/agent_registry/` package tracks every change to agent and skill defin
 3. `snapshot.py` is the low-level writer; it also exposes `diff` and `list_snapshots` for querying history.
 4. `manage.py sync` iterates all `.claude/` files and triggers the same auto-snapshot logic — useful for bulk syncs or CI.
 
+**The PostToolUse hook** (`hook.py`, wired up in `.claude/settings.json`) snapshots a
+definition as soon as you edit it. It resolves paths from its own location, so it works
+regardless of the shell's working directory, and it never fails a tool call — registry
+problems are reported, not raised.
+
+- It snapshots only the file that changed, not all definitions. A snapshot is written
+  only when the content actually differs from the last one.
+- Set `AGENT_REGISTRY_HOOK_DISABLED=1` to suppress writes while testing or making bulk
+  edits, then catch up with `cd infra && python -m agent_registry.manage sync`.
+- The hook runs `${CLAUDE_PYTHON:-python}`. If `python` on your PATH is not the
+  interpreter holding `infra/agent_registry/requirements.txt`, create a project venv and
+  pin it in `.claude/settings.local.json` (gitignored — never put an absolute path in the
+  committed `settings.json`):
+  ```json
+  { "env": { "CLAUDE_PYTHON": "/abs/path/to/repo/.venv/Scripts/python.exe" } }
+  ```
+  Unpinned, the hook falls back to `python` and degrades to a skipped snapshot if the
+  dependencies are absent.
+
 **Rules:**
 - Edit agent and skill definitions in `.claude/` only — never write directly to BigQuery snapshot tables.
 - Use `performance_tag` in snapshots when A/B testing prompt variants so results can be queried and compared.
+- All BigQuery reads in `snapshot.py` set `maximum_bytes_billed` — these run on every edit.
 
 ## Hard Rules
 
