@@ -14,7 +14,9 @@ description: >
 - Auth: query parameter `api_key=<FRED_API_KEY>`
 - Rate limit: 120 requests/minute
 - Project usage: `01_extraction/fred_economic/main.py`, BQ table: `raw.fred_economic_observations`,
-  Secret: `fred-api-key` (Secret Manager), env var: `FRED_API_KEY`
+  Secret: `FRED_API_KEY` (Secret Manager), env var: `FRED_API_KEY`
+  — the two must be identical: `infra/terraform/sources.tf` maps them 1:1 via
+  `secret_key_ref { secret = <env var name> }`
 
 ## Endpoints used
 
@@ -60,18 +62,24 @@ description: >
 ## Error handling
 - HTTP 429: rate limit exceeded — retry with exponential backoff (`wait = 2 ** attempt * 5` seconds, max 5 attempts)
 - HTTP 5xx: server error — same retry logic as 429
-- HTTP 400: bad series ID or parameter — raises immediately (not retried)
+- HTTP 400: bad series ID or parameter — not retried; raised as `UnknownSeriesError`,
+  which the run loop logs and skips so one bad id does not abort the whole run
 - The API does not return an HTTP error for series with no data in the requested range; it returns an empty `observations` array — check `len(observations) == 0` and exit cleanly
 
 ## Rate limiting
 - Cap: 120 requests/minute
 - Project approach: `time.sleep(0.6)` between series requests (~100 req/min headroom)
-- With ~120 series total, one full run takes ~72 seconds minimum just from sleep
+- With 118 series total, one full run takes ~71 seconds minimum just from sleep
 
-## Series extracted (120 total)
+## Series extracted (118 total)
 - 16 national macro series (interest rates, labor, inflation, GDP, housing, consumer)
-- 51 state-level FHFA House Price Indices: `ATNHPIUS<FIPS>A` pattern
+- 51 state-level FHFA House Price Indices: `ATNHPIUS<FIPS>000A` pattern
+  (FRED pads the 2-digit state FIPS to a 5-character area code: `06` → `06000`)
 - 51 state-level Average Weekly Wages (QCEW): `ENUC<FIPS>40010SA` pattern
+
+The state-level id patterns are the least certain part of this reference. A series
+FRED rejects with HTTP 400 is logged and skipped, not fatal — check the job log
+after the first run and correct any rejected ids in `main.py`.
 
 ## Incremental strategy
 - Per-series date watermark: `MAX(date)` from `raw.fred_economic_observations WHERE series_id = ?`

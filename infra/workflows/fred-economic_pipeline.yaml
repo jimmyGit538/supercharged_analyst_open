@@ -1,14 +1,15 @@
-# Cloud Workflows definition: {source}_pipeline
+# Cloud Workflows definition: fred-economic_pipeline
 #
-# Template — copy this file and replace {source} with your source name
-# (must match the key used in terraform.tfvars sources map).
+# Generated from example_pipeline.yaml. The source key `fred-economic` must match
+# the key in the terraform.tfvars sources map, and the filename must be
+# <source_key>_pipeline.yaml — workflows.tf resolves it with file().
 #
 # Runs five Cloud Run Jobs in sequence:
-#   1. {source}-extract-daily           (extraction → raw dataset)
-#   2. {source}-dbt-stg-warehouse-daily (dbt 1_staging_warehouses → stg_warehouses)
-#   3. {source}-dbt-warehouse-daily     (dbt 2_warehouses → warehouses)
-#   4. {source}-dbt-stg-marts-daily     (dbt 3_staging_marts → stg_marts)
-#   5. {source}-dbt-mart-daily          (dbt 4_marts → marts)
+#   1. fred-economic-extract-daily           (extraction → raw dataset)
+#   2. fred-economic-dbt-stg-warehouse-daily (dbt 1_staging_warehouses → stg_warehouses)
+#   3. fred-economic-dbt-warehouse-daily     (dbt 2_warehouses → warehouses)
+#   4. fred-economic-dbt-stg-marts-daily     (dbt 3_staging_marts → stg_marts)
+#   5. fred-economic-dbt-mart-daily          (dbt 4_marts → marts)
 #
 # Triggered by Cloud Scheduler on the schedule defined in terraform.tfvars.
 # If any job fails the workflow exits with an error — visible in Cloud Logging.
@@ -27,7 +28,7 @@ main:
     - run_extraction:
         call: http.post
         args:
-          url:  ${jobs_base + "{source}-extract-daily:run"}
+          url:  ${jobs_base + "fred-economic-extract-daily:run"}
           auth:
             type: OAuth2
         result: extraction_op
@@ -48,7 +49,7 @@ main:
     - run_dbt_stg_warehouse:
         call: http.post
         args:
-          url:  ${jobs_base + "{source}-dbt-stg-warehouse-daily:run"}
+          url:  ${jobs_base + "fred-economic-dbt-stg-warehouse-daily:run"}
           auth:
             type: OAuth2
         result: dbt_stg_warehouse_op
@@ -69,7 +70,7 @@ main:
     - run_dbt_warehouse:
         call: http.post
         args:
-          url:  ${jobs_base + "{source}-dbt-warehouse-daily:run"}
+          url:  ${jobs_base + "fred-economic-dbt-warehouse-daily:run"}
           auth:
             type: OAuth2
         result: dbt_warehouse_op
@@ -90,7 +91,7 @@ main:
     - run_dbt_stg_marts:
         call: http.post
         args:
-          url:  ${jobs_base + "{source}-dbt-stg-marts-daily:run"}
+          url:  ${jobs_base + "fred-economic-dbt-stg-marts-daily:run"}
           auth:
             type: OAuth2
         result: dbt_stg_marts_op
@@ -111,7 +112,7 @@ main:
     - run_dbt_mart:
         call: http.post
         args:
-          url:  ${jobs_base + "{source}-dbt-mart-daily:run"}
+          url:  ${jobs_base + "fred-economic-dbt-mart-daily:run"}
           auth:
             type: OAuth2
         result: dbt_mart_op
@@ -129,7 +130,7 @@ main:
         next: done
 
     - done:
-        return: "{source} pipeline complete"
+        return: "fred-economic pipeline complete"
 
 
 # ── Sub-workflow: poll a Cloud Run v2 long-running operation ──────────────────

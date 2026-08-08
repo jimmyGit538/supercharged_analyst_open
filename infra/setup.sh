@@ -120,8 +120,67 @@ gcloud iam service-accounts add-iam-policy-binding "$CI_SA" \
   --role="roles/iam.serviceAccountTokenCreator" \
   --member="principalSet://iam.googleapis.com/${WIF_POOL_NAME}/attribute.repository/${GITHUB_REPO}"
 
+# ── Dataset access helper ──────────────────────────────────────────────────────
+# Terraform cannot manage google_bigquery_dataset_access (the resource has no
+# usable import path), so dataset-level ACLs are applied here — see the comment
+# block in infra/terraform/bigquery.tf.
+#
+# `bq add-iam-policy-binding` requires allowlisting, so the ACL is edited by
+# reading the dataset resource, patching it, and writing it back. The patch MUST
+# write the WHOLE resource: dumping only {"access": ...} discards every other
+# field on the dataset (description, labels, default expirations) on update.
+#
+# Python exit codes: 0 = resource changed, write it; 10 = already correct, skip;
+# anything else = a real failure that must not be silently swallowed.
+grant_dataset_access() {
+  local dataset="$1" sa="$2" role="$3"
+  local tmpfile rc=0
+
+  tmpfile=$(mktemp "${TMPDIR:-/tmp}/bq_${dataset}_acl.XXXXXX.json")
+  bq show --format=json "${PROJECT_ID}:${dataset}" > "$tmpfile"
+
+  python3 - "$tmpfile" "$sa" "$role" "$dataset" <<'PYEOF' || rc=$?
+import json
+import sys
+
+path, sa, role, dataset = sys.argv[1:5]
+
+with open(path) as f:
+    data = json.load(f)
+
+access = data.get("access", [])
+existing = next((e for e in access if e.get("userByEmail") == sa), None)
+
+if existing is not None and existing.get("role") == role:
+    print(f"  {dataset}: {sa} already has {role} — skipping")
+    sys.exit(10)
+
+if existing is None:
+    access.append({"role": role, "userByEmail": sa})
+    print(f"  {dataset}: granting {role} to {sa}")
+else:
+    print(f"  {dataset}: changing {sa} from {existing.get('role')} to {role}")
+    existing["role"] = role
+
+# Preserve the full dataset resource; only `access` is modified.
+data["access"] = access
+with open(path, "w") as f:
+    json.dump(data, f)
+PYEOF
+
+  case "$rc" in
+    0)  bq update --source="$tmpfile" "${PROJECT_ID}:${dataset}" ;;
+    10) ;;
+    *)  echo "ERROR: failed to patch dataset ACL for ${dataset}" >&2
+        rm -f "$tmpfile"
+        exit 1 ;;
+  esac
+
+  rm -f "$tmpfile"
+}
+
 # ── BigQuery datasets ──────────────────────────────────────────────────────────
-for dataset in raw staging warehouses marts agent_registry; do
+for dataset in raw stg_warehouses warehouses stg_marts marts staging agent_registry; do
   bq --project_id="$PROJECT_ID" mk \
     --dataset \
     --location="$REGION" \
@@ -129,28 +188,8 @@ for dataset in raw staging warehouses marts agent_registry; do
     || echo "Dataset '${dataset}' already exists — skipping"
 done
 
-# Grant extraction SA Data Editor on the raw dataset (dataset-level, least privilege)
-# bq add-iam-policy-binding requires allowlisting, so we use bq show/update with a temp file
-TMPFILE=$(mktemp /tmp/bq_raw_acl.XXXXXX.json)
-bq show --format=json "${PROJECT_ID}:raw" > "$TMPFILE"
-python3 - "$TMPFILE" "${EXTRACTION_SA}" <<'PYEOF'
-import sys, json
-
-path, sa = sys.argv[1], sys.argv[2]
-with open(path) as f:
-    data = json.load(f)
-
-access = data.get("access", [])
-if any(e.get("userByEmail") == sa for e in access):
-    print(f"{sa} already has access to raw dataset — skipping")
-else:
-    access.append({"role": "WRITER", "userByEmail": sa})
-    with open(path, "w") as f:
-        json.dump({"access": access}, f)
-    print(f"Granted WRITER access on raw dataset to {sa}")
-PYEOF
-bq update --source="$TMPFILE" "${PROJECT_ID}:raw"
-rm -f "$TMPFILE"
+# Grant extraction SA write access on the raw dataset (dataset-level, least privilege)
+grant_dataset_access raw "${EXTRACTION_SA}" WRITER
 
 # Grant extraction SA BigQuery Job User at project level (needed to run queries)
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
@@ -171,47 +210,13 @@ gcloud iam service-accounts create dbt-runner \
 
 DBT_SA="dbt-runner@${PROJECT_ID}.iam.gserviceaccount.com"
 
-# dbt needs to create/replace tables in staging, warehouses, and marts datasets
-for dataset in staging warehouses marts; do
-  TMPFILE=$(mktemp /tmp/bq_${dataset}_acl.XXXXXX.json)
-  bq show --format=json "${PROJECT_ID}:${dataset}" > "$TMPFILE"
-  python3 - "$TMPFILE" "${DBT_SA}" <<'PYEOF'
-import sys, json
-path, sa = sys.argv[1], sys.argv[2]
-with open(path) as f:
-    data = json.load(f)
-access = data.get("access", [])
-if any(e.get("userByEmail") == sa for e in access):
-    print(f"{sa} already has access — skipping")
-else:
-    access.append({"role": "WRITER", "userByEmail": sa})
-    with open(path, "w") as f:
-        json.dump({"access": access}, f)
-    print(f"Granted WRITER access on {path} to {sa}")
-PYEOF
-  bq update --source="$TMPFILE" "${PROJECT_ID}:${dataset}"
-  rm -f "$TMPFILE"
+# dbt needs to create/replace relations in every layer dataset it materialises into
+for dataset in stg_warehouses warehouses stg_marts marts; do
+  grant_dataset_access "$dataset" "${DBT_SA}" WRITER
 done
 
-# dbt also needs read access to the raw dataset (via staging views)
-TMPFILE=$(mktemp /tmp/bq_raw_dbt_acl.XXXXXX.json)
-bq show --format=json "${PROJECT_ID}:raw" > "$TMPFILE"
-python3 - "$TMPFILE" "${DBT_SA}" <<'PYEOF'
-import sys, json
-path, sa = sys.argv[1], sys.argv[2]
-with open(path) as f:
-    data = json.load(f)
-access = data.get("access", [])
-if any(e.get("userByEmail") == sa for e in access):
-    print(f"{sa} already has read access — skipping")
-else:
-    access.append({"role": "READER", "userByEmail": sa})
-    with open(path, "w") as f:
-        json.dump({"access": access}, f)
-    print(f"Granted READER access on raw dataset to {sa}")
-PYEOF
-bq update --source="$TMPFILE" "${PROJECT_ID}:raw"
-rm -f "$TMPFILE"
+# dbt also needs read access to the raw dataset (via the staging views)
+grant_dataset_access raw "${DBT_SA}" READER
 
 # dbt runner needs BigQuery Job User to run queries
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \

@@ -10,6 +10,7 @@ GCP-native modern data stack for a small analytics team. The goal is to extract,
 
 ```
 01_extraction/                          # One subdirectory per data source (main.py, requirements.txt, Dockerfile)
+  fred_economic/                        # 01_extraction/fred_economic/ — reference source, FRED series → raw.fred_economic_observations
 02_dbt/                                 # dbt Core project (staging views → mart tables in BigQuery)
   Dockerfile                            # Docker image for the dbt runner
   dbt_project.yml                       # dbt project configuration
@@ -40,6 +41,7 @@ infra/                                  # GCP infrastructure (Terraform + legacy
     import.sh                           # One-time import of existing GCP resources into state
   workflows/                            # Cloud Workflow YAML definitions
     example_pipeline.yaml               # Example Cloud Workflow orchestrating Cloud Run Jobs in sequence
+    fred-economic_pipeline.yaml         # Reference pipeline for the fred-economic source
     create_jobs.sh                      # Legacy: manual job creation (superseded by Terraform)
     deploy.sh                           # Legacy: manual workflow deployment (superseded by Terraform)
   setup.sh                              # Legacy: one-time GCP bootstrap (superseded by Terraform)
@@ -125,9 +127,11 @@ Examples:
 
 **BigQuery datasets**
 - `raw` — landing zone for extraction jobs (Data Editor access only)
-- `staging` — dbt staging views
-- `warehouses` - dbt warehouse tables (cleaned extraction)
-- `marts` — dbt mart tables (source for Looker Studio)
+- `stg_warehouses` — dbt staging views over `raw` (layer `1_staging_warehouses`)
+- `warehouses` — dbt warehouse tables, cleaned extraction (layer `2_warehouses`)
+- `stg_marts` — dbt staging views feeding the mart layer (layer `3_staging_marts`)
+- `marts` — dbt mart tables, source for Looker Studio (layer `4_marts`)
+- `agent_registry` — append-only agent/skill snapshot history (US multi-region)
 
 ## Infrastructure (Terraform)
 
@@ -152,7 +156,7 @@ Terraform auto-generates 5 Cloud Run Jobs per source from the `sources` map:
 | Account | Purpose |
 |---|---|
 | `extraction-runner` | Runs extraction Cloud Run Jobs, writes to `raw` dataset |
-| `dbt-runner` | Runs dbt Cloud Run Jobs, reads `raw`, writes `staging`/`warehouses`/`marts` |
+| `dbt-runner` | Runs dbt Cloud Run Jobs, reads `raw`, writes `stg_warehouses`/`warehouses`/`stg_marts`/`marts` |
 | `github-actions-ci` | Pushes Docker images to Artifact Registry (via WIF, no keys) |
 | `workflow-runner` | Executes Cloud Workflows, invokes Cloud Run Jobs |
 | `scheduler-runner` | Triggers Cloud Workflows on schedule |
@@ -177,9 +181,29 @@ The `infra/agent_registry/` package tracks every change to agent and skill defin
 3. `snapshot.py` is the low-level writer; it also exposes `diff` and `list_snapshots` for querying history.
 4. `manage.py sync` iterates all `.claude/` files and triggers the same auto-snapshot logic — useful for bulk syncs or CI.
 
+**The PostToolUse hook** (`hook.py`, wired up in `.claude/settings.json`) snapshots a
+definition as soon as you edit it. It resolves paths from its own location, so it works
+regardless of the shell's working directory, and it never fails a tool call — registry
+problems are reported, not raised.
+
+- It snapshots only the file that changed, not all definitions. A snapshot is written
+  only when the content actually differs from the last one.
+- Set `AGENT_REGISTRY_HOOK_DISABLED=1` to suppress writes while testing or making bulk
+  edits, then catch up with `cd infra && python -m agent_registry.manage sync`.
+- The hook runs `${CLAUDE_PYTHON:-python}`. If `python` on your PATH is not the
+  interpreter holding `infra/agent_registry/requirements.txt`, create a project venv and
+  pin it in `.claude/settings.local.json` (gitignored — never put an absolute path in the
+  committed `settings.json`):
+  ```json
+  { "env": { "CLAUDE_PYTHON": "/abs/path/to/repo/.venv/Scripts/python.exe" } }
+  ```
+  Unpinned, the hook falls back to `python` and degrades to a skipped snapshot if the
+  dependencies are absent.
+
 **Rules:**
 - Edit agent and skill definitions in `.claude/` only — never write directly to BigQuery snapshot tables.
 - Use `performance_tag` in snapshots when A/B testing prompt variants so results can be queried and compared.
+- All BigQuery reads in `snapshot.py` set `maximum_bytes_billed` — these run on every edit.
 
 ## Hard Rules
 

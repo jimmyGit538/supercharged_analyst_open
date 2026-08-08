@@ -19,17 +19,26 @@ models:
   supercharged_analyst:
     1_staging_warehouses:
       +materialized: view
-      +schema: staging
+      +schema: stg_warehouses
     2_warehouses:
       +materialized: table
       +schema: warehouses
     3_staging_marts:
       +materialized: view
-      +schema: staging
+      +schema: stg_marts
     4_marts:
       +materialized: table
       +schema: marts
 
-seeds:
-  supercharged_analyst:
-    +schema: warehouses
+# No seeds yet. A `seeds:` block here whose path matches no CSV makes dbt warn
+# "Configuration paths exist in your dbt_project.yml file which do not apply to
+# any resources" on every invocation, so the config is added with the first seed
+# rather than kept empty. When you add one:
+#
+#   1. create 02_dbt/seeds/<name>.csv
+#   2. restore:
+#        seeds:
+#          supercharged_analyst:
+#            +schema: warehouses
+#   3. add `dbt seed` to the dbt-warehouse stage command in infra/terraform/locals.tf
+#      — the Cloud Run job currently runs `dbt run --select 2_warehouses` only.

@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     # Skip this job when GCP secrets are not configured.
     # Forks and fresh clones of this template won't have these secrets until
-    # the contributor completes GCP setup (see docs/supercharged_analyst_plan.md).
+    # the contributor completes GCP setup (see the Quick Start in README.md).
     if: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER != '' }}
     permissions:
       contents: read
