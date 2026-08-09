@@ -3,6 +3,19 @@ output "wif_provider" {
   value       = google_iam_workload_identity_pool_provider.github.name
 }
 
+# Echoed back as outputs so `scripts/setup.sh --configure-github` can read every
+# value the Deploy workflow needs from `terraform output -json` alone, rather
+# than regex-parsing terraform.tfvars.
+output "gcp_project_id" {
+  description = "GCP project ID (GitHub Actions variable GCP_PROJECT_ID)"
+  value       = var.project_id
+}
+
+output "gcp_region" {
+  description = "GCP region (GitHub Actions variable GCP_REGION)"
+  value       = var.region
+}
+
 output "ci_service_account" {
   description = "GitHub Actions CI service account email"
   value       = google_service_account.github_actions_ci.email

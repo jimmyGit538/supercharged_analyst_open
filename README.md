@@ -19,11 +19,20 @@ Before you start, make sure you have:
 - [ ] A GCP project with billing enabled
 - [ ] [`gcloud` CLI](https://cloud.google.com/sdk/docs/install) installed and authenticated (`gcloud auth login && gcloud auth application-default login`)
 - [ ] [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.5 installed
+- [ ] [GitHub CLI](https://cli.github.com) installed and authenticated (`gh auth login`) — used to configure Actions secrets for you
 - [ ] [Docker Desktop](https://www.docker.com/products/docker-desktop/) running
 - [ ] Python 3.11+
 - [ ] [Claude Code](https://claude.ai/code) CLI installed (`npm install -g @anthropic-ai/claude-code`)
 
 ## Quick Start
+
+**Shortcut:** open Claude Code in your fork and run `/setup-fork`. It walks the whole
+sequence below — writing `.env` and `terraform.tfvars`, enabling APIs, applying
+Terraform, configuring GitHub Actions, pushing images, then verifying that rows actually
+landed in `marts`. It stops and asks for the five things only you can supply: a billed
+GCP project, two browser logins, a FRED API key, and approval of the `terraform apply`.
+
+The manual sequence follows, and is what the skill automates.
 
 ### 1. Fork and clone
 
@@ -130,21 +139,32 @@ from `infra/` (`python -m agent_registry.manage`), both of which the script hand
 
 ### 8. Configure GitHub Actions CI
 
-In your GitHub repo settings, add:
+```bash
+bash scripts/setup.sh --configure-github
+```
 
-**Secrets:**
-- `WORKLOAD_IDENTITY_PROVIDER` — from `terraform output wif_provider`
-- `SERVICE_ACCOUNT` — from `terraform output ci_service_account`
+This reads the Terraform outputs and sets all four values on your fork for you — no
+copy-pasting into the web UI:
 
-**Variables:**
-- `GCP_PROJECT_ID` — your GCP project ID
-- `GCP_REGION` — e.g. `us-central1`
+| Name | Kind | Source |
+|---|---|---|
+| `WORKLOAD_IDENTITY_PROVIDER` | secret | `terraform output wif_provider` |
+| `SERVICE_ACCOUNT` | secret | `terraform output ci_service_account` |
+| `GCP_PROJECT_ID` | variable | `terraform output gcp_project_id` |
+| `GCP_REGION` | variable | `terraform output gcp_region` |
+
+Requires `gh auth login` and admin on the fork (you own it, so you have it). Re-run it
+any time — it overwrites in place.
 
 All four are required. Until they are all set, the Deploy workflow reports success but
-**skips the image push** — it logs a notice naming what is missing. Nothing reaches
-Artifact Registry until this step is done, so `terraform apply` will not be able to pull
-`:latest`. You can re-run the push without a merge from the Actions tab
-(Deploy → Run workflow) once the values are in place.
+**skips the image push**, logging a notice naming what is missing. Nothing reaches
+Artifact Registry until this step is done, so `terraform apply` cannot pull `:latest`.
+Verify and trigger a push without a merge:
+
+```bash
+gh secret list && gh variable list
+gh workflow run deploy.yml
+```
 
 ### 9. Run the reference source (FRED)
 
