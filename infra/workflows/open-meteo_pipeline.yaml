@@ -1,0 +1,160 @@
+# Cloud Workflows definition: open-meteo_pipeline
+#
+# Generated from example_pipeline.yaml. The source key `open-meteo` must match
+# the key in the terraform.tfvars sources map, and the filename must be
+# <source_key>_pipeline.yaml — workflows.tf resolves it with file().
+#
+# Runs five Cloud Run Jobs in sequence:
+#   1. open-meteo-extract-daily           (extraction → raw dataset)
+#   2. open-meteo-dbt-stg-warehouse-daily (dbt 1_staging_warehouses → stg_warehouses)
+#   3. open-meteo-dbt-warehouse-daily     (dbt 2_warehouses → warehouses)
+#   4. open-meteo-dbt-stg-marts-daily     (dbt 3_staging_marts → stg_marts)
+#   5. open-meteo-dbt-mart-daily          (dbt 4_marts → marts)
+#
+# Triggered by Cloud Scheduler on the schedule defined in terraform.tfvars.
+# If any job fails the workflow exits with an error — visible in Cloud Logging.
+#
+# This is the zero-setup reference pipeline: Open-Meteo needs no API key, so a
+# fresh fork can run this end-to-end with no secret to create first. See
+# `.claude/skills/setup-fork/SKILL.md`.
+
+main:
+  params: [args]
+  steps:
+
+    - init:
+        assign:
+          - project_id: ${sys.get_env("GOOGLE_CLOUD_PROJECT_ID")}
+          - region:     ${default(map.get(args, "region"), "us-central1")}
+          - jobs_base:  ${"https://run.googleapis.com/v2/projects/" + project_id + "/locations/" + region + "/jobs/"}
+
+    # ── Step 1: extraction ────────────────────────────────────────────────────
+    - run_extraction:
+        call: http.post
+        args:
+          url:  ${jobs_base + "open-meteo-extract-daily:run"}
+          auth:
+            type: OAuth2
+        result: extraction_op
+
+    - wait_extraction:
+        call:   wait_for_operation
+        args:
+          op_name: ${extraction_op.body.name}
+        result: extraction_result
+
+    - check_extraction:
+        switch:
+          - condition: ${"error" in extraction_result}
+            raise:  ${extraction_result.error}
+        next: run_dbt_stg_warehouse
+
+    # ── Step 2: dbt staging warehouses ───────────────────────────────────────
+    - run_dbt_stg_warehouse:
+        call: http.post
+        args:
+          url:  ${jobs_base + "open-meteo-dbt-stg-warehouse-daily:run"}
+          auth:
+            type: OAuth2
+        result: dbt_stg_warehouse_op
+
+    - wait_dbt_stg_warehouse:
+        call:   wait_for_operation
+        args:
+          op_name: ${dbt_stg_warehouse_op.body.name}
+        result: dbt_stg_warehouse_result
+
+    - check_dbt_stg_warehouse:
+        switch:
+          - condition: ${"error" in dbt_stg_warehouse_result}
+            raise:  ${dbt_stg_warehouse_result.error}
+        next: run_dbt_warehouse
+
+    # ── Step 3: dbt warehouse ─────────────────────────────────────────────────
+    - run_dbt_warehouse:
+        call: http.post
+        args:
+          url:  ${jobs_base + "open-meteo-dbt-warehouse-daily:run"}
+          auth:
+            type: OAuth2
+        result: dbt_warehouse_op
+
+    - wait_dbt_warehouse:
+        call:   wait_for_operation
+        args:
+          op_name: ${dbt_warehouse_op.body.name}
+        result: dbt_warehouse_result
+
+    - check_dbt_warehouse:
+        switch:
+          - condition: ${"error" in dbt_warehouse_result}
+            raise:  ${dbt_warehouse_result.error}
+        next: run_dbt_stg_marts
+
+    # ── Step 4: dbt staging marts ─────────────────────────────────────────────
+    - run_dbt_stg_marts:
+        call: http.post
+        args:
+          url:  ${jobs_base + "open-meteo-dbt-stg-marts-daily:run"}
+          auth:
+            type: OAuth2
+        result: dbt_stg_marts_op
+
+    - wait_dbt_stg_marts:
+        call:   wait_for_operation
+        args:
+          op_name: ${dbt_stg_marts_op.body.name}
+        result: dbt_stg_marts_result
+
+    - check_dbt_stg_marts:
+        switch:
+          - condition: ${"error" in dbt_stg_marts_result}
+            raise:  ${dbt_stg_marts_result.error}
+        next: run_dbt_mart
+
+    # ── Step 5: dbt marts ─────────────────────────────────────────────────────
+    - run_dbt_mart:
+        call: http.post
+        args:
+          url:  ${jobs_base + "open-meteo-dbt-mart-daily:run"}
+          auth:
+            type: OAuth2
+        result: dbt_mart_op
+
+    - wait_dbt_mart:
+        call:   wait_for_operation
+        args:
+          op_name: ${dbt_mart_op.body.name}
+        result: dbt_mart_result
+
+    - check_dbt_mart:
+        switch:
+          - condition: ${"error" in dbt_mart_result}
+            raise:  ${dbt_mart_result.error}
+        next: done
+
+    - done:
+        return: "open-meteo pipeline complete"
+
+
+# ── Sub-workflow: poll a Cloud Run v2 long-running operation ──────────────────
+wait_for_operation:
+  params: [op_name]
+  steps:
+    - poll:
+        call: http.get
+        args:
+          url:  ${"https://run.googleapis.com/v2/" + op_name}
+          auth:
+            type: OAuth2
+        result: op
+    - check_done:
+        switch:
+          - condition: ${default(map.get(op.body, "done"), false) == true}
+            return: ${op.body}
+        next: sleep
+    - sleep:
+        call: sys.sleep
+        args:
+          seconds: 30
+        next: poll

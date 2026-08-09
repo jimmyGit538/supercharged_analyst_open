@@ -29,3 +29,44 @@ models:
           - not_null
       - name: _loaded_at
         description: "Timestamp when this row was written to the warehouse by dbt."
+
+  - name: open_meteo_daily_weather
+    description: >
+      Warehouse table for Open-Meteo daily weather. One row per
+      (location_id, date). Incrementally loaded using a per-location date
+      watermark. Partitioned by month on date, clustered by location_id.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [location_id, date]
+    columns:
+      - name: location_id
+        description: "Fixed city identifier (e.g. new_york, tokyo)."
+        tests:
+          - not_null
+      - name: location_name
+        description: "Human-readable city name."
+      - name: country
+        description: "ISO 3166-1 alpha-2 country code."
+      - name: latitude
+        description: "WGS84 latitude of the queried grid cell."
+      - name: longitude
+        description: "WGS84 longitude of the queried grid cell."
+      - name: date
+        description: "Observation date (UTC)."
+        tests:
+          - not_null
+      - name: temperature_max_c
+        description: "Daily maximum 2m air temperature, Celsius."
+      - name: temperature_min_c
+        description: "Daily minimum 2m air temperature, Celsius."
+      - name: precipitation_sum_mm
+        description: "Total daily precipitation, millimetres."
+      - name: wind_speed_max_kmh
+        description: "Daily maximum 10m wind speed, km/h."
+      - name: extracted_at
+        description: "UTC timestamp from the extraction job."
+        tests:
+          - not_null
+      - name: _loaded_at
+        description: "Timestamp when this row was written to the warehouse by dbt."

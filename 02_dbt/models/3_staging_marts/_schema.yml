@@ -107,3 +107,41 @@ models:
           house_price_index / avg_weekly_wage. An index-based ratio —
           not an absolute dollar measure. Higher means less affordable.
           NULL when either input is NULL.
+
+  - name: stg_open_meteo__weather_metrics
+    description: >
+      Open-Meteo daily weather with a derived temperature range on top of
+      the warehouse table. One row per (location_id, date).
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [location_id, date]
+    columns:
+      - name: location_id
+        description: "Fixed city identifier (e.g. new_york, tokyo)."
+        tests:
+          - not_null
+      - name: location_name
+        description: "Human-readable city name."
+      - name: country
+        description: "ISO 3166-1 alpha-2 country code."
+      - name: latitude
+        description: "WGS84 latitude of the queried grid cell."
+      - name: longitude
+        description: "WGS84 longitude of the queried grid cell."
+      - name: date
+        description: "Observation date (UTC)."
+        tests:
+          - not_null
+      - name: temperature_max_c
+        description: "Daily maximum 2m air temperature, Celsius."
+      - name: temperature_min_c
+        description: "Daily minimum 2m air temperature, Celsius."
+      - name: temperature_range_c
+        description: >
+          temperature_max_c - temperature_min_c. NULL when either input
+          is NULL.
+      - name: precipitation_sum_mm
+        description: "Total daily precipitation, millimetres."
+      - name: wind_speed_max_kmh
+        description: "Daily maximum 10m wind speed, km/h."
