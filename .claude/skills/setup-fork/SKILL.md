@@ -3,17 +3,22 @@ name: setup-fork
 description: >
   End-to-end first-run setup for a fresh fork of this template — prerequisites,
   .env and terraform.tfvars, GCP infrastructure, GitHub Actions secrets and
-  variables, image push, and a verified run of the FRED reference pipeline.
-  Invoke when the user has just forked or cloned the repo and wants to get it
-  running, or says "set up my fork", "first-time setup", "get this running",
-  "onboard me". Do NOT invoke for adding a new data source (use
-  /add-data-source) or for debugging an already-working pipeline.
+  variables, image push, and a verified run of the Open-Meteo reference
+  pipeline (no API key required). Invoke when the user has just forked or
+  cloned the repo and wants to get it running, or says "set up my fork",
+  "first-time setup", "get this running", "onboard me". Do NOT invoke for
+  adding a new data source (use /add-data-source) or for debugging an
+  already-working pipeline.
 ---
 
 # Fork Setup
 
 Take a fresh fork from clone to rows in `marts`. Most of this is automated; a
-few things only the user can do.
+few things only the user can do. The pipeline this skill provisions and
+verifies by default is **Open-Meteo** — it needs no API key, so there is no
+signup step blocking a fresh fork. FRED remains in the repo as an optional
+example of a keyed source (see the closing note) but is not part of this
+sequence.
 
 ## What only the user can do
 
@@ -24,7 +29,6 @@ Never attempt these yourself. Stop, ask, and wait.
 | Create a GCP project, enable billing | Costs money, tied to their identity |
 | `gcloud auth login` and `gcloud auth application-default login` | Interactive browser consent |
 | `gh auth login` | Interactive browser consent |
-| Get a FRED API key | Third-party signup: https://fredaccount.stlouisfed.org/apikeys |
 | Approve `terraform apply` | Creates billable resources |
 
 Everything else you run for them.
@@ -65,33 +69,31 @@ Ask for these together, in one question — not one at a time:
 
 - GCP project ID
 - Region (default `us-central1`)
-- FRED API key
 
 Then fill them in:
-- `.env` — `BQ_PROJECT`, `BQ_PROJECT_EXTRACTION`, `BQ_DATASET`, `FRED_API_KEY`
+- `.env` — `BQ_PROJECT`, `BQ_PROJECT_EXTRACTION`, `BQ_DATASET`
 - `infra/terraform/terraform.tfvars` — `project_id`, `region`, `github_repo`
 
 `github_repo` comes from `git remote get-url origin` — derive it, don't ask.
 
-Never write the FRED key anywhere except `.env` (gitignored) and Secret Manager.
-Never echo it back.
+No API key is needed for this sequence — Open-Meteo requires none. If the
+user separately asks to enable FRED, see the closing note: that's the one
+place a secret (`FRED_API_KEY`) enters the picture, and the same rule applies
+there — write it only to `.env` (gitignored) and Secret Manager, never echo
+it back.
 
-### 4. Enable APIs and create the secret
+### 4. Enable APIs
 
 ```bash
 gcloud services enable run.googleapis.com cloudscheduler.googleapis.com \
   workflows.googleapis.com bigquery.googleapis.com artifactregistry.googleapis.com \
   secretmanager.googleapis.com iam.googleapis.com iamcredentials.googleapis.com \
   sts.googleapis.com --project "$PROJECT_ID"
-
-gcloud secrets create FRED_API_KEY --replication-policy=automatic --project "$PROJECT_ID"
-printf '%s' "$FRED_API_KEY" | gcloud secrets versions add FRED_API_KEY --data-file=- --project "$PROJECT_ID"
 ```
 
-The secret name must be exactly `FRED_API_KEY` — `infra/terraform/sources.tf`
-mounts secrets by matching the secret name to the env var name. It must exist
-*before* apply: `secrets.tf` reads it as a `data` source, so the plan fails
-without it.
+`secretmanager.googleapis.com` is enabled here even though the default
+`open-meteo` source needs no secret — `infra/terraform/secrets.tf` and the
+optional FRED example both depend on the API being on.
 
 ### 5. Provision infrastructure
 
@@ -137,36 +139,49 @@ If it reports success but skipped the push, step 7 did not take — check
 ### 9. Run and verify
 
 ```bash
-gcloud workflows run fred-economic-pipeline --location="$REGION"
+gcloud workflows run open-meteo-pipeline --location="$REGION"
 ```
 
 Then confirm data actually landed — a green workflow is not proof:
 
 ```bash
 bq query --use_legacy_sql=false --maximum_bytes_billed=1000000000 \
-  'SELECT COUNT(*) AS rows, COUNT(DISTINCT series_id) AS series, MAX(date) AS latest
-   FROM `'"$PROJECT_ID"'.raw.fred_economic_observations`'
+  'SELECT COUNT(*) AS rows, COUNT(DISTINCT location_id) AS locations, MAX(date) AS latest
+   FROM `'"$PROJECT_ID"'.raw.open_meteo_daily_weather`'
 
 bq query --use_legacy_sql=false --maximum_bytes_billed=1000000000 \
   'SELECT COUNT(*) AS rows, MAX(date) AS latest
-   FROM `'"$PROJECT_ID"'.marts.fct_fred_economic_indicators`'
+   FROM `'"$PROJECT_ID"'.marts.fct_open_meteo_daily_weather`'
 ```
 
-Expect ~118 distinct series in `raw`. Fewer means some series ids were rejected —
-that is logged, not fatal. Check the extraction job log:
+Expect ~20 distinct locations in `raw` (the fixed city list in
+`01_extraction/open_meteo/main.py::LOCATIONS`). Fewer means some requests
+failed — check the extraction job log:
 
 ```bash
 gcloud logging read \
-  'resource.type=cloud_run_job AND resource.labels.job_name=fred-economic-extract-daily AND textPayload:REJECTED' \
+  'resource.type=cloud_run_job AND resource.labels.job_name=open-meteo-extract-daily' \
   --limit=20 --project "$PROJECT_ID"
 ```
-
-The state-level series id patterns (`ATNHPIUS<FIPS>000A`,
-`ENUC<FIPS>40010SA`) are the least-verified part of the reference source. If
-they are rejected, correct the lists in `01_extraction/fred_economic/main.py`.
 
 ## Finishing
 
 Report a single checklist: what is done, what the user still owes, and the one
 next command. If anything failed, say so plainly with the error — never report
 a phase as complete because the command exited 0 when the data says otherwise.
+
+## Optional: enabling FRED afterward
+
+FRED ships in the repo (commented out in `terraform.tfvars.example`) as a
+working example of a source that needs a Secret-Manager-backed API key — the
+pattern to copy when wiring up your own keyed source via `/add-data-source`.
+It is not part of this setup sequence. If the user asks for it separately:
+
+1. Get a free key: https://fredaccount.stlouisfed.org/apikeys (their step, not yours)
+2. `gcloud secrets create FRED_API_KEY ...` and add the version (same pattern
+   as step 4 used to, before Open-Meteo replaced it as the default) — it must
+   exist before `terraform apply`, since `secrets.tf` reads it as a `data` source
+3. Uncomment the `fred-economic` block in `terraform.tfvars`, `terraform plan`, `terraform apply`
+4. `gcloud workflows run fred-economic-pipeline --location="$REGION"`, then verify
+   `raw.fred_economic_observations` and `marts.fct_fred_economic_indicators` the
+   same way step 9 verifies Open-Meteo

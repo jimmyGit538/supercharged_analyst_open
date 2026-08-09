@@ -18,21 +18,39 @@ github_repo = "YOUR_GITHUB_ORG/YOUR_REPO_NAME"
 # Secret Manager secret names must equal the environment variable name the job expects
 # — sources.tf maps them 1:1 (secret_key_ref { secret = <the key below> }).
 #
-# fred-economic is the reference source shipped with this template. Delete it, or keep
-# it as a working example alongside your own sources.
+# open-meteo is the zero-setup reference source shipped with this template — it needs
+# no API key, so `setup-fork` provisions and verifies it by default and it is active
+# below out of the box. fred-economic is included (commented out) as a working example
+# of a source that needs a Secret-Manager-backed API key — see `.claude/skills/api-fred/
+# SKILL.md`. Uncomment it once you've created its FRED_API_KEY secret (README step 9 /
+# `.claude/skills/setup-fork/SKILL.md`); its `secrets` map is the pattern to copy for
+# your own keyed sources.
 sources = {
-  fred-economic = {
+  open-meteo = {
     # Must equal the 01_extraction/<dir> basename — .github/workflows/deploy.yml
     # tags each image with `basename "$dir"`. Underscores are fine here.
-    extraction_image = "fred_economic"
+    extraction_image = "open_meteo"
     frequency        = "daily"          # daily | weekly | monthly
     schedule         = "0 6 * * *"      # cron expression
     schedule_tz      = "America/New_York"
     env_vars         = { BQ_PROJECT_EXTRACTION = "YOUR_GCP_PROJECT_ID" }
-    secrets          = { FRED_API_KEY = "latest" }
+    secrets          = {}               # no API key required — non-commercial, no signup
 
-    # 118 series x 0.6s of rate-limit sleep is ~71s before any data moves, and the
-    # first run backfills full history. The 600s default is not enough.
-    timeout = "3600s"
+    timeout = "1200s"
   }
+
+  # fred-economic = {
+  #   # Must equal the 01_extraction/<dir> basename — .github/workflows/deploy.yml
+  #   # tags each image with `basename "$dir"`. Underscores are fine here.
+  #   extraction_image = "fred_economic"
+  #   frequency        = "daily"          # daily | weekly | monthly
+  #   schedule         = "0 6 * * *"      # cron expression
+  #   schedule_tz      = "America/New_York"
+  #   env_vars         = { BQ_PROJECT_EXTRACTION = "YOUR_GCP_PROJECT_ID" }
+  #   secrets          = { FRED_API_KEY = "latest" }
+  #
+  #   # 118 series x 0.6s of rate-limit sleep is ~71s before any data moves, and the
+  #   # first run backfills full history. The 600s default is not enough.
+  #   timeout = "3600s"
+  # }
 }

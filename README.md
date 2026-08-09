@@ -29,8 +29,9 @@ Before you start, make sure you have:
 **Shortcut:** open Claude Code in your fork and run `/setup-fork`. It walks the whole
 sequence below — writing `.env` and `terraform.tfvars`, enabling APIs, applying
 Terraform, configuring GitHub Actions, pushing images, then verifying that rows actually
-landed in `marts`. It stops and asks for the five things only you can supply: a billed
-GCP project, two browser logins, a FRED API key, and approval of the `terraform apply`.
+landed in `marts`. It stops and asks for the four things only you can supply: a billed
+GCP project, two browser logins, and approval of the `terraform apply`. No API key is
+needed for the default pipeline — see step 9.
 
 The manual sequence follows, and is what the skill automates.
 
@@ -80,8 +81,8 @@ gcloud services enable \
 cd infra/terraform
 cp terraform.tfvars.example terraform.tfvars
 # Edit terraform.tfvars — set project_id, region, github_repo
-# Set sources = {} for now — comment out the fred-economic block. It references a
-# Secret Manager secret you haven't created yet, and step 9 turns it back on.
+# open-meteo is active by default and needs no secret. fred-economic ships commented
+# out — leave it that way until you've created its FRED_API_KEY secret (step 9a).
 ```
 
 ### 6. Provision GCP infrastructure
@@ -166,12 +167,30 @@ gh secret list && gh variable list
 gh workflow run deploy.yml
 ```
 
-### 9. Run the reference source (FRED)
+### 9. Run the reference source (Open-Meteo)
 
-The template ships one complete, working source: **FRED** (Federal Reserve Economic Data)
-— 118 US economic series (16 national macro indicators plus state-level house prices and
-wages). It needs no paid account and exercises every layer of the stack, so run it first
-to prove the pipeline before writing your own.
+The template ships one complete, working source active out of the box: **Open-Meteo**
+(historical daily weather for ~20 major world cities). It needs no API key, no signup,
+and no Secret Manager entry, so it's what `terraform apply` in step 6 already provisioned
+— run it now to prove the pipeline end to end before writing your own source or enabling
+the optional FRED example below.
+
+```bash
+gcloud workflows run open-meteo-pipeline --location="$REGION"
+```
+
+What lands: `raw.open_meteo_daily_weather` → `stg_warehouses` → `warehouses` →
+`stg_marts` → `marts.fct_open_meteo_daily_weather`, ready to point Looker Studio at.
+
+Extraction is incremental — each city carries its own date watermark, and the first run
+backfills from `2015-01-01` (override with `OPEN_METEO_START_DATE`).
+
+### 9a. Optional: enable FRED (a keyed-source example)
+
+The template also ships **FRED** (Federal Reserve Economic Data) — 118 US economic
+series — as a complete, working example of a source that needs a Secret-Manager-backed
+API key. It's not part of the default fork setup, but it's the pattern to copy when you
+add your own keyed source.
 
 Create the API key secret **before** `terraform apply` — `infra/terraform/secrets.tf`
 reads it as a `data` source, so the plan fails if it doesn't exist:
@@ -225,8 +244,9 @@ The skill walks you through:
 5. Generates `infra/workflows/<source>_pipeline.yaml`
 6. Adds the entry to `terraform.tfvars`
 
-`01_extraction/fred_economic/` and the `fred_economic` dbt models are the reference
-implementation to copy from.
+`01_extraction/open_meteo/` and the `open_meteo` dbt models are the reference
+implementation to copy from for a no-auth source; `01_extraction/fred_economic/` is the
+reference for a source needing a Secret-Manager-backed API key.
 
 After the skill completes, open a PR — CI lints and builds the Docker images. Once the PR
 merges to `main`, the Deploy workflow pushes them to Artifact Registry.
@@ -275,7 +295,8 @@ Models land in the `dbt_dev` dataset in BigQuery under your GCP project.
 
 ```
 01_extraction/          # One subdirectory per data source (main.py, Dockerfile, requirements.txt)
-  fred_economic/        # Reference source — FRED economic series
+  open_meteo/            # Zero-setup reference source — no API key, historical daily weather
+  fred_economic/         # Optional keyed-source example — FRED economic series
 02_dbt/                 # dbt Core project
   models/
     1_staging_warehouses/   # Staging views from raw          → stg_warehouses

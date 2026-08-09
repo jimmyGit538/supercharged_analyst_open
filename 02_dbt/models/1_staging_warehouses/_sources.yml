@@ -30,3 +30,42 @@ sources:
               NULL when FRED returns a missing-value sentinel (".").
           - name: extracted_at
             description: "UTC timestamp when the row was written to BigQuery."
+
+      - name: open_meteo_daily_weather
+        description: >
+          Open-Meteo historical daily weather loaded by the Open-Meteo
+          extraction job (zero-setup reference source, no API key required).
+          Append-only: a location is re-pulled from its watermark date
+          forward on each run so revisions to Open-Meteo's provisional
+          recent days are captured, so the same (location_id, date) can
+          appear more than once with different extracted_at values.
+          Deduplication happens in stg_open_meteo__daily_weather.
+          Source: https://open-meteo.com/, CC BY 4.0 — attribution required.
+        config:
+          loaded_at_field: extracted_at
+          freshness:
+            warn_after: {count: 2, period: day}
+            error_after: {count: 7, period: day}
+        columns:
+          - name: location_id
+            description: "Fixed city identifier (e.g. new_york, tokyo)."
+          - name: location_name
+            description: "Human-readable city name."
+          - name: country
+            description: "ISO 3166-1 alpha-2 country code."
+          - name: latitude
+            description: "WGS84 latitude of the queried grid cell."
+          - name: longitude
+            description: "WGS84 longitude of the queried grid cell."
+          - name: date
+            description: "Observation date (UTC)."
+          - name: temperature_max_c
+            description: "Daily maximum 2m air temperature, Celsius."
+          - name: temperature_min_c
+            description: "Daily minimum 2m air temperature, Celsius."
+          - name: precipitation_sum_mm
+            description: "Total daily precipitation, millimetres."
+          - name: wind_speed_max_kmh
+            description: "Daily maximum 10m wind speed, km/h."
+          - name: extracted_at
+            description: "UTC timestamp when the row was written to BigQuery."

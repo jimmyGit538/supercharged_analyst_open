@@ -10,7 +10,8 @@ GCP-native modern data stack for a small analytics team. The goal is to extract,
 
 ```
 01_extraction/                          # One subdirectory per data source (main.py, requirements.txt, Dockerfile)
-  fred_economic/                        # 01_extraction/fred_economic/ — reference source, FRED series → raw.fred_economic_observations
+  open_meteo/                           # 01_extraction/open_meteo/ — zero-setup reference source, no API key, weather → raw.open_meteo_daily_weather
+  fred_economic/                        # 01_extraction/fred_economic/ — optional keyed-source example, FRED series → raw.fred_economic_observations
 02_dbt/                                 # dbt Core project (staging views → mart tables in BigQuery)
   Dockerfile                            # Docker image for the dbt runner
   dbt_project.yml                       # dbt project configuration
@@ -41,7 +42,8 @@ infra/                                  # GCP infrastructure (Terraform + legacy
     import.sh                           # One-time import of existing GCP resources into state
   workflows/                            # Cloud Workflow YAML definitions
     example_pipeline.yaml               # Example Cloud Workflow orchestrating Cloud Run Jobs in sequence
-    fred-economic_pipeline.yaml         # Reference pipeline for the fred-economic source
+    open-meteo_pipeline.yaml            # Zero-setup reference pipeline for the open-meteo source (no API key)
+    fred-economic_pipeline.yaml         # Optional keyed-source example pipeline for the fred-economic source
     create_jobs.sh                      # Legacy: manual job creation (superseded by Terraform)
     deploy.sh                           # Legacy: manual workflow deployment (superseded by Terraform)
   setup.sh                              # Legacy: one-time GCP bootstrap (superseded by Terraform)
