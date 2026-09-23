@@ -8,10 +8,10 @@ COPY . .
 # resolves at parse time.
 RUN dbt deps --project-dir /app
 
-# Default: build every layer. dbt resolves cross-layer order from ref(), so no
-# explicit --select sequence is needed. There are no seeds, so no `dbt seed`.
+# Default: build every model and run every test. dbt resolves cross-layer order
+# from ref(), so no explicit --select sequence is needed.
 #
 # The Cloud Run Jobs do not use this CMD: infra/terraform/locals.tf passes
-# args = ["sh", "-c", "dbt run ... --select <layer>"], which overrides it to run
-# one layer per job.
-CMD ["sh", "-c", "dbt run --profiles-dir /app --project-dir /app --target cloudrun"]
+# args = ["dbt", "build", ..., "--select", "<layer>,tag:<source>"], which
+# overrides it to build one layer of one source per job.
+CMD ["dbt", "build", "--profiles-dir", "/app", "--project-dir", "/app", "--target", "cloudrun"]

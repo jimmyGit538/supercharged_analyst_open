@@ -2,6 +2,8 @@ version: 2
 
 models:
   - name: stg_fred_economic__observations
+    config:
+      tags: [fred-economic]
     description: >
       Deduplicated and filtered view over raw.fred_economic_observations.
       One row per (series_id, date), keeping the latest extracted_at when
@@ -29,6 +31,8 @@ models:
           - not_null
 
   - name: stg_open_meteo__daily_weather
+    config:
+      tags: [open-meteo]
     description: >
       Deduplicated and filtered view over raw.open_meteo_daily_weather.
       One row per (location_id, date), keeping the latest extracted_at when

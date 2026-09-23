@@ -2,6 +2,8 @@ version: 2
 
 models:
   - name: fred_economic_observations
+    config:
+      tags: [fred-economic]
     description: >
       Warehouse table for FRED economic observations. One row per
       (series_id, date). Incrementally loaded using a per-series date
@@ -31,6 +33,8 @@ models:
         description: "Timestamp when this row was written to the warehouse by dbt."
 
   - name: open_meteo_daily_weather
+    config:
+      tags: [open-meteo]
     description: >
       Warehouse table for Open-Meteo daily weather. One row per
       (location_id, date). Incrementally loaded using a per-location date

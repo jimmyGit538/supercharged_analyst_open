@@ -181,6 +181,7 @@ used consistently across all of the following. If any mismatch is found, correct
 | BQ raw tables | `raw.<source>_<entity>` |
 | Extract job | `<source>-extract-<cadence>` |
 | dbt jobs | `<source>-dbt-stg-warehouse-<cadence>`, `<source>-dbt-warehouse-<cadence>`, `<source>-dbt-stg-marts-<cadence>`, `<source>-dbt-mart-<cadence>` |
+| dbt model tag | `config: tags: [<source>]` in `_schema.yml`, where `<source>` is the Terraform key — the Cloud Run Jobs select `<layer>,tag:<source>` |
 | dbt staging | `stg_<source>__<entity>.sql` (view, schema: staging) |
 | dbt warehouse | `<source>_<name>.sql` (table, schema: warehouses) |
 | dbt staging mart | `stg_<source>__<entity>.sql` (view, schema: staging) |

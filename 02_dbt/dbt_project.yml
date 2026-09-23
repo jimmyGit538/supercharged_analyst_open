@@ -40,5 +40,7 @@ models:
 #        seeds:
 #          supercharged_analyst:
 #            +schema: warehouses
-#   3. add `dbt seed` to the dbt-warehouse stage command in infra/terraform/locals.tf
-#      — the Cloud Run job currently runs `dbt run --select 2_warehouses` only.
+#   3. tag it with its source key (`config: tags: [<source>]`), like every model.
+#
+# The Cloud Run jobs run `dbt build`, which loads seeds in DAG order, so no
+# separate `dbt seed` step is needed in infra/terraform/locals.tf.
