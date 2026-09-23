@@ -7,6 +7,9 @@ description: >
   implementing incremental/new-data-only extraction with watermarks or cursors,
   or when writing data to BigQuery after extraction. Do NOT load for general
   Python tasks unrelated to data extraction or ingestion.
+metadata:
+  tier: layer
+  domain: extraction
 ---
 
 # Python Data Extraction — Standards & Patterns

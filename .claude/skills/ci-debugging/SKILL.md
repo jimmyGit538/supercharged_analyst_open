@@ -5,6 +5,9 @@ description: >
   Actions job fails (lint, docker-build, or deploy), when sqlfluff or ruff
   reports errors, when a Docker build fails, or when GCP authentication fails
   in CI. Do NOT load for general CI/CD questions unrelated to this repo.
+metadata:
+  tier: universal
+  domain: workflow
 ---
 
 # CI Debugging

@@ -4,21 +4,24 @@ description: >
   Expert guidance on designing data pipelines, specifically choosing between full refresh
   and incremental loading strategies.
 
-Use this skill whenever a user asks about:
+  Use this skill whenever a user asks about:
   ETL/ELT design, data pipeline architecture, loading strategies, dbt model configuration,
   incremental vs full refresh tradeoffs, handling late-arriving data, upserts, merges,
   backfilling, warehouse cost optimization, or how to load data from a source system into
   a target table.
 
-Trigger even for adjacent questions like "my pipeline is too slow" or
+  Trigger even for adjacent questions like "my pipeline is too slow" or
   "my Snowflake bill is too high" — these often trace back to pipeline pattern choices.
 
-Also trigger when a user shares a schema or describes a source system and asks how
+  Also trigger when a user shares a schema or describes a source system and asks how
   to build a pipeline for it.
 
   Also trigger when determining:
   How to transform data and build dbt models based on the RAW data passed to you from the data-extractor agent,
   How to transform data stored in the 01_extraction directory and prepare it for either data warehouse dbt models OR data mart dbt models.
+metadata:
+  tier: layer
+  domain: modeling
 ---
 
 # Data Pipeline Patterns: Full Refresh vs Incremental

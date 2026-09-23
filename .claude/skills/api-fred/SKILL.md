@@ -5,6 +5,9 @@ description: >
   code that calls the FRED API, building FRED extractors, or answering questions
   about FRED endpoints, parameters, or response shapes. Do NOT load for general
   discussions unrelated to the FRED API.
+metadata:
+  tier: source
+  domain: extraction
 ---
 
 # FRED API

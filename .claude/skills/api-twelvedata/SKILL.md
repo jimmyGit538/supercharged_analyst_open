@@ -4,6 +4,9 @@ description: >
   Twelvedata API reference. Auto-invoke when writing code that calls the
   Twelvedata API, building Twelvedata extractors, or answering questions about
   Twelvedata endpoints, parameters, or response shapes.
+metadata:
+  tier: source
+  domain: extraction
 ---
 
 # Twelvedata API

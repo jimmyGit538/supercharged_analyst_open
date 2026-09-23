@@ -4,6 +4,9 @@ description: >
   PR workflow standards for this repo. Auto-invoke when opening a pull request,
   pushing a branch, writing a commit message, or responding to PR review feedback.
   Do NOT load for general git questions unrelated to contributing to this repo.
+metadata:
+  tier: universal
+  domain: workflow
 ---
 
 # PR Workflow
