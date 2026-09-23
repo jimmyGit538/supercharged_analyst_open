@@ -1,12 +1,13 @@
 ---
 name: python-data-extraction
 description: >
-  Python data extraction patterns and conventions. Auto-invoke when writing
-  Python to extract data from REST APIs or SaaS platforms (Salesforce, Stripe,
-  etc.), when managing API credentials via Secret Manager or .env files, when
-  implementing incremental/new-data-only extraction with watermarks or cursors,
-  or when writing data to BigQuery after extraction. Do NOT load for general
-  Python tasks unrelated to data extraction or ingestion.
+  Python data extraction patterns and conventions for this repo's Cloud Run
+  extraction jobs. Auto-invoke when writing or modifying anything under
+  01_extraction/, when implementing incremental extraction with a watermark
+  read from the destination BigQuery table, when handling API credentials via
+  .env locally and Secret Manager in Cloud Run, or when writing extracted rows
+  to the raw dataset. Do NOT load for general Python tasks unrelated to data
+  extraction, or for dbt work on data already in BigQuery.
 metadata:
   tier: layer
   domain: extraction
@@ -14,35 +15,45 @@ metadata:
 
 # Python Data Extraction — Standards & Patterns
 
-## 1. Project Structure
+The two shipped extractors are the reference implementations. Copy their shape
+rather than inventing a new one:
 
-Each data source gets its own isolated directory under `01_extraction/`. There
-is no shared extractor library — each source is self-contained.
+| Reference | Shows |
+|---|---|
+| `01_extraction/open_meteo/main.py` | No API key. One request per entity returns the whole date range. |
+| `01_extraction/fred_economic/main.py` | Secret-Manager-backed API key. Offset pagination, per-entity failure isolation, batched loads. |
+
+Both follow the same skeleton (Section 4). Everything in this skill is a
+description of that skeleton and the reasons behind it.
+
+---
+
+## 1. Project structure
+
+One self-contained directory per source. There is no shared extractor library.
 
 ```
 01_extraction/
-├── salesforce/
-│   ├── main.py           # entrypoint — extract and load to BigQuery raw
-│   ├── requirements.txt
-│   └── Dockerfile
-├── stripe/
-│   ├── main.py
-│   ├── requirements.txt
-│   └── Dockerfile
-└── <source>/             # one directory per SaaS system or data source
-    ├── main.py
-    ├── requirements.txt
-    └── Dockerfile
+└── <source>/
+    ├── main.py           # entrypoint — extract and append to BigQuery raw
+    ├── requirements.txt  # python-dotenv, requests, google-cloud-bigquery + source SDK if any
+    └── Dockerfile        # the template below, unchanged
 ```
 
-Each `main.py` runs as a Cloud Run Job — it executes to completion and exits.
-No HTTP server or Flask entrypoint is needed.
+`main.py` runs as a Cloud Run Job: it executes to completion and exits. No HTTP
+server, no scheduler loop, no CLI arguments — configuration comes from
+environment variables only.
+
+The directory name is the Docker image name (`.github/workflows/deploy.yml`
+tags each image with `basename "$dir"`) and must equal `extraction_image` in
+the source's `terraform.tfvars` entry. Underscores are fine here; the Terraform
+key that names the Cloud Run Jobs uses hyphens (`open_meteo` → `open-meteo`).
 
 ---
 
 ## 2. Dockerfile
 
-Use this standard template for every extractor (from CLAUDE.md):
+Every extractor uses this template unchanged (from CLAUDE.md):
 
 ```dockerfile
 FROM python:3.11-slim
@@ -53,452 +64,301 @@ COPY main.py .
 CMD ["python", "main.py"]
 ```
 
+CI builds every `01_extraction/*/Dockerfile` on each PR and pushes the images
+to Artifact Registry on merge to `main`. Never build or push images by hand.
+
 ---
 
-## 3. Environment & Credentials
+## 3. Environment and credentials
 
-**Local development:** load secrets from `.env` via `python-dotenv`.
-**Cloud Run Jobs:** secrets are mounted from **GCP Secret Manager** as
-environment variables — `load_dotenv()` is a no-op when vars are already set,
-so no code changes are needed between environments.
+Locally, `load_dotenv()` reads `.env`. In Cloud Run the same variables are
+already set, so `load_dotenv()` is a no-op and the code is identical in both
+environments.
 
-Never commit `.env`. Never hardcode credentials.
+| Variable | Set by | Purpose |
+|---|---|---|
+| `BQ_PROJECT_EXTRACTION` (falls back to `BQ_PROJECT`) | `.env` locally, `env_vars` in `terraform.tfvars` in Cloud Run | Project holding the `raw` dataset |
+| `BQ_DATASET_EXTRACTION` (default `raw`) | same | Destination dataset |
+| `<SOURCE>_API_KEY` and any other secret | `.env` locally, Secret Manager in Cloud Run | Source credentials |
 
-```python
-# .env.example  (commit this — placeholders only)
-SALESFORCE_USERNAME=
-SALESFORCE_PASSWORD=
-SALESFORCE_SECURITY_TOKEN=
-SALESFORCE_DOMAIN=login
-STRIPE_API_KEY=
-MY_API_BASE_URL=https://api.example.com
-MY_API_KEY=
-BQ_PROJECT_EXTRACTION=your-gcp-project-id   # GCP project for raw extraction writes
-BQ_DATASET_EXTRACTION=raw                   # always "raw" for extraction jobs
-```
-
-```python
-# main.py — credential loading
-from dotenv import load_dotenv
-import os
-
-load_dotenv()  # no-op in Cloud Run; reads .env locally
-
-SALESFORCE_USERNAME = os.getenv("SALESFORCE_USERNAME")
-if not SALESFORCE_USERNAME:
-    raise EnvironmentError("SALESFORCE_USERNAME is not set")
-```
-
-**Rules:**
-- Validate required vars at startup; fail fast with a clear message
-- Add `.env` to `.gitignore`
-- In Cloud Run Jobs, mount secrets via Secret Manager — never bake `.env` into
-  the image
+**Secrets.** Terraform mounts secrets by name: the Secret Manager secret name
+must equal the environment variable name, and the `secrets` map in the
+source's `terraform.tfvars` entry lists it (`secrets = { FRED_API_KEY =
+"latest" }`). Creating the secret is the one manual step, and it happens
+before `terraform apply`, because `secrets.tf` reads it as a data source:
 
 ```bash
-# Store a secret in Secret Manager
-gcloud secrets create STRIPE_API_KEY --replication-policy="automatic"
-echo -n "sk_live_..." | gcloud secrets versions add STRIPE_API_KEY --data-file=-
-
-# Mount secrets as env vars when creating the Cloud Run Job
-gcloud run jobs update stripe-extractor \
-  --update-secrets=STRIPE_API_KEY=STRIPE_API_KEY:latest \
-  --update-secrets=BQ_PROJECT_EXTRACTION=BQ_PROJECT_EXTRACTION:latest \
-  --update-secrets=BQ_DATASET_EXTRACTION=BQ_DATASET_EXTRACTION:latest
+gcloud secrets create FRED_API_KEY --replication-policy="automatic" --project "$PROJECT_ID"
+echo -n "your-key" | gcloud secrets versions add FRED_API_KEY --data-file=- --project "$PROJECT_ID"
 ```
+
+Never call `gcloud run jobs ...` or `gcloud scheduler ...` — the jobs, their
+secret mounts, IAM and schedules are all generated by Terraform from the
+`sources` map. See the `terraform-gcp-pipeline` skill.
+
+**Rules**
+
+- Add every new variable to `.env.example` with an empty or placeholder value.
+- Validate required variables at startup and fail fast with a clear message
+  (`validate_environment()` in both references).
+- Never hardcode a key, a project id, or a dataset name that differs per fork.
 
 ---
 
-## 4. Incremental Extraction — New Data Only
+## 4. The `main.py` skeleton
 
-### Watermark Strategy (timestamp-based)
-Best for: Salesforce, most REST APIs with `updated_at` or `created_at` fields.
-
-Store the watermark in BigQuery or a GCS object so it persists across Cloud Run
-Job executions (Cloud Run Jobs have no local state between runs).
+Both references share this structure. Keep the section markers and the
+function names — the `add-data-source` skill and the dbt modeler rely on them.
 
 ```python
-# Watermark stored as a GCS JSON file
-from google.cloud import storage
-import json, os
+"""Extract <Source> <entity> into BigQuery `raw`.
 
-def load_watermark(source_key: str, default: str = "1970-01-01T00:00:00Z") -> str:
-    client = storage.Client()
-    bucket = client.bucket(os.getenv("WATERMARK_BUCKET"))
-    blob = bucket.blob(f"watermarks/{source_key}.json")
-    if not blob.exists():
-        return default
-    return json.loads(blob.download_as_text()).get("last_extracted", default)
+Runs as a Cloud Run Job: executes to completion and exits.
 
-def save_watermark(source_key: str, new_ts: str):
-    client = storage.Client()
-    bucket = client.bucket(os.getenv("WATERMARK_BUCKET"))
-    blob = bucket.blob(f"watermarks/{source_key}.json")
-    blob.upload_from_string(json.dumps({"last_extracted": new_ts}))
-```
+Incremental strategy: per-<key> date watermark read from the destination
+table. A <key> with no watermark is loaded from <START>; a <key> with a
+watermark is re-pulled from that date forward so source revisions are
+captured. Duplicates this creates are resolved in the dbt staging layer,
+which keeps one row per (<key>, date) by latest extracted_at.
+"""
 
-### Cursor Strategy (ID/offset-based)
-Best for: Stripe (`starting_after`), paginated REST APIs.
-
-```python
-def fetch_stripe_charges(after_cursor: str | None = None) -> list[dict]:
-    import stripe
-    stripe.api_key = os.getenv("STRIPE_API_KEY")
-
-    params = {"limit": 100}
-    if after_cursor:
-        params["starting_after"] = after_cursor
-
-    all_charges = []
-    while True:
-        page = stripe.Charge.list(**params)
-        all_charges.extend(page.data)
-        if not page.has_more:
-            break
-        params["starting_after"] = page.data[-1].id
-
-    return all_charges
-```
-
-### Choosing a Strategy Per Source
-
-| Source | Recommended Strategy | Field / Param |
-|---|---|---|
-| Salesforce | Timestamp watermark | `LastModifiedDate >= :watermark` |
-| Stripe | Cursor | `starting_after` on list endpoints |
-| Generic REST API | Timestamp or cursor | Depends on API docs |
-
-### No New Data — Graceful Exit (Required)
-
-Every incremental extractor **must** handle the case where no new data is available
-and exit cleanly with code 0. APIs vary in how they signal this:
-
-| API behaviour | How to handle |
-|---|---|
-| Returns empty list `[]` | Check `if not records` before loading |
-| Returns HTTP 200 with `{"data": []}` | Same — check length after parsing |
-| Returns error message like "No data available" | Catch the specific message, return `[]` |
-| Returns HTTP 404 / 416 | Catch the status code, treat as empty |
-
-**Pattern — apply in `extract()` and `main()`:**
-
-```python
-def extract(start_date: str | None) -> list[dict]:
-    response = requests.get(url, params=params, timeout=30)
-    response.raise_for_status()
-    data = response.json()
-
-    # Some APIs return an error payload instead of an empty list
-    if data.get("status") == "error":
-        msg = data.get("message", "")
-        if "no data" in msg.lower() or "not available" in msg.lower():
-            print("[extract] No new data available — non-trading period or empty range.")
-            return []
-        raise RuntimeError(f"API error: {msg}")
-
-    return data.get("values", [])
-
-
-def main():
-    ...
-    records = extract(start_date=watermark)
-    if not records:
-        print("[main] No new data. Exiting.")
-        return  # exit 0 — do NOT raise, do NOT update watermark
-
-    load(client, records)
-```
-
-**Rules:**
-- Never crash when there is simply no new data — this is expected on weekends,
-  holidays, or off-hours runs
-- Never update the watermark if `extract()` returns empty — the next run must
-  retry from the same position
-- Log clearly so Cloud Logging shows the reason for the early exit
-
----
-
-## 5. BigQuery Loader
-
-All extractors write to the `raw` BigQuery dataset. Use
-`google-cloud-bigquery` — not psycopg2 or any SQL database.
-
-Apply **column pruning** and **`maximum_bytes_billed`** on all queries per
-project cost-control rules.
-
-```python
-# BigQuery upsert (merge) pattern
-from google.cloud import bigquery
 import os
+import time
+from datetime import datetime, timezone
 
-def load_to_bigquery(records: list[dict], table_id: str):
-    """
-    table_id format: "project.dataset.table"
-    e.g. "my-project.raw.salesforce_contacts"
-    """
-    if not records:
-        print("[bq] No records to load.")
-        return
-
-    client = bigquery.Client()
-    errors = client.insert_rows_json(table_id, records)
-    if errors:
-        raise RuntimeError(f"[bq] Insert errors: {errors}")
-    print(f"[bq] Loaded {len(records)} rows into {table_id}")
-
-
-def get_bq_table_id(source: str) -> str:
-    project = os.getenv("BQ_PROJECT_EXTRACTION")
-    dataset = os.getenv("BQ_DATASET_EXTRACTION", "raw")
-    return f"{project}.{dataset}.{source}"
-```
-
-For large volumes or schema evolution, prefer `load_table_from_json` with a
-write disposition of `WRITE_APPEND`:
-
-```python
-def append_to_bigquery(records: list[dict], table_id: str, schema: list):
-    client = bigquery.Client()
-    job_config = bigquery.LoadJobConfig(
-        schema=schema,
-        write_disposition="WRITE_APPEND",
-    )
-    job = client.load_table_from_json(records, table_id, job_config=job_config)
-    job.result()  # wait for completion
-    print(f"[bq] Appended {len(records)} rows into {table_id}")
-```
-
----
-
-## 6. Salesforce Extractor — `main.py` Template
-
-```python
-# 01_extraction/salesforce/main.py
-import os
-from dotenv import load_dotenv
-from simple_salesforce import Salesforce
-from google.cloud import bigquery
-
-load_dotenv()
-
-SOURCE_KEY = "salesforce_contacts"
-BQ_PROJECT = os.getenv("BQ_PROJECT_EXTRACTION")
-BQ_DATASET = os.getenv("BQ_DATASET_EXTRACTION", "raw")
-BQ_TABLE = f"{BQ_PROJECT}.{BQ_DATASET}.{SOURCE_KEY}"
-
-SF_OBJECT = "Contact"
-SF_FIELDS = ["Id", "Name", "Email", "LastModifiedDate"]
-
-
-def extract(watermark: str) -> list[dict]:
-    sf = Salesforce(
-        username=os.getenv("SALESFORCE_USERNAME"),
-        password=os.getenv("SALESFORCE_PASSWORD"),
-        security_token=os.getenv("SALESFORCE_SECURITY_TOKEN"),
-        domain=os.getenv("SALESFORCE_DOMAIN", "login"),
-    )
-    field_list = ", ".join(SF_FIELDS)
-    query = (
-        f"SELECT {field_list} FROM {SF_OBJECT} "
-        f"WHERE LastModifiedDate >= {watermark} "
-        f"ORDER BY LastModifiedDate ASC"
-    )
-    result = sf.query_all(query)
-    records = result["records"]
-    return [{k: v for k, v in r.items() if k != "attributes"} for r in records]
-
-
-def load(records: list[dict]):
-    if not records:
-        return
-    client = bigquery.Client()
-    errors = client.insert_rows_json(BQ_TABLE, records)
-    if errors:
-        raise RuntimeError(f"BigQuery insert errors: {errors}")
-    print(f"Loaded {len(records)} rows into {BQ_TABLE}")
-
-
-def main():
-    watermark = "1970-01-01T00:00:00Z"  # replace with watermark store lookup
-    records = extract(watermark)
-    load(records)
-    if records:
-        new_watermark = records[-1]["LastModifiedDate"]
-        print(f"New watermark: {new_watermark}")  # persist this
-
-
-if __name__ == "__main__":
-    main()
-```
-
----
-
-## 7. Generic REST API Extractor — `main.py` Template
-
-```python
-# 01_extraction/<source>/main.py
-import os
 import requests
 from dotenv import load_dotenv
+from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
 
 load_dotenv()
 
-SOURCE_KEY = "my_api_records"
-BQ_PROJECT = os.getenv("BQ_PROJECT_EXTRACTION")
+# ── Configuration ────────────────────────────────────────────────────────────────
+
+API_BASE_URL = "https://api.example.com/v1"
+API_KEY = os.getenv("EXAMPLE_API_KEY")          # omit for keyless sources
+
+BQ_PROJECT = os.getenv("BQ_PROJECT_EXTRACTION") or os.getenv("BQ_PROJECT")
 BQ_DATASET = os.getenv("BQ_DATASET_EXTRACTION", "raw")
-BQ_TABLE = f"{BQ_PROJECT}.{BQ_DATASET}.{SOURCE_KEY}"
-BASE_URL = os.getenv("MY_API_BASE_URL")
+BQ_TABLE_NAME = "<source>_<entity>"
+
+REQUEST_SLEEP_SECONDS = 0.6   # stay under the documented rate limit
+MAX_ATTEMPTS = 5
+REQUEST_TIMEOUT_SECONDS = 30
+LOAD_BATCH_ROWS = 50_000
+MAX_BYTES_BILLED = 1 * 1024**3  # ceiling on the watermark query
+
+ENTITIES = [...]              # the fixed list of series / locations / objects
+
+BQ_SCHEMA = [
+    bigquery.SchemaField("<key>", "STRING", mode="REQUIRED"),
+    bigquery.SchemaField("date", "DATE", mode="REQUIRED"),
+    ...,
+    bigquery.SchemaField("extracted_at", "TIMESTAMP", mode="REQUIRED"),
+]
 
 
-def extract(watermark: str) -> list[dict]:
-    headers = {"Authorization": f"Bearer {os.getenv('MY_API_KEY')}"}
-    params = {"updated_after": watermark, "limit": 200}
-    records = []
-
-    while True:
-        response = requests.get(f"{BASE_URL}/records", headers=headers, params=params)
-        response.raise_for_status()
-        page = response.json()
-        batch = page.get("data", [])
-        records.extend(batch)
-
-        next_cursor = page.get("next_cursor")
-        if not next_cursor or not batch:
-            break
-        params["cursor"] = next_cursor
-
-    return records
+def table_id() -> str:
+    return f"{BQ_PROJECT}.{BQ_DATASET}.{BQ_TABLE_NAME}"
 
 
-def load(records: list[dict]):
-    if not records:
-        return
-    client = bigquery.Client()
-    errors = client.insert_rows_json(BQ_TABLE, records)
-    if errors:
-        raise RuntimeError(f"BigQuery insert errors: {errors}")
-    print(f"Loaded {len(records)} rows into {BQ_TABLE}")
+# ── Extraction ───────────────────────────────────────────────────────────────────
+
+def _request(...) -> dict:
+    """GET one page, retrying on 429 and 5xx with exponential backoff."""
+
+def extract_<entity>(...) -> list[dict]:
+    """Return every row for one entity from its watermark onwards, all pages."""
 
 
-def main():
-    watermark = "1970-01-01T00:00:00Z"  # replace with watermark store lookup
-    records = extract(watermark)
-    load(records)
+# ── BigQuery ─────────────────────────────────────────────────────────────────────
+
+def ensure_table(client: bigquery.Client) -> None:
+    """Create the destination table on first run: partitioned and clustered."""
+
+def load_watermarks(client: bigquery.Client) -> dict[str, str]:
+    """Return {<key>: latest date already in BigQuery}. Empty on the first run."""
+
+def append_rows(client: bigquery.Client, rows: list[dict]) -> None:
+    """load_table_from_json with WRITE_APPEND and the explicit schema."""
+
+
+# ── Entrypoint ───────────────────────────────────────────────────────────────────
+
+def validate_environment() -> None: ...
+
+def main() -> None:
+    validate_environment()
+    client = bigquery.Client(project=BQ_PROJECT)
+    ensure_table(client)
+    watermarks = load_watermarks(client)
+    extracted_at = datetime.now(timezone.utc).isoformat()
+    ...  # loop over ENTITIES, extract, batch-append, log per entity
+    ...  # summarise: rows loaded, empty entities, rejected entities
 
 
 if __name__ == "__main__":
     main()
 ```
 
----
-
-## 8. Scheduling — Cloud Run Jobs + Cloud Scheduler
-
-Each extractor runs as a **Cloud Run Job** (not a Cloud Run Service). The job
-executes `main.py` to completion and exits — no HTTP server needed.
-
-### Architecture
-
-```
-Cloud Scheduler (cron) ──── triggers ────▶ Cloud Run Job
-                                                │
-                                                ├── loads secrets from Secret Manager
-                                                ├── extracts from source API
-                                                └── writes to BigQuery raw dataset
-```
-
-### Create and deploy the Cloud Run Job
-
-```bash
-# Build and push container to Artifact Registry
-gcloud builds submit \
-  --tag us-central1-docker.pkg.dev/PROJECT_ID/data-extractors/salesforce:latest \
-  01_extraction/salesforce/
-
-# Create the Cloud Run Job
-gcloud run jobs create salesforce-extractor \
-  --image us-central1-docker.pkg.dev/PROJECT_ID/data-extractors/salesforce:latest \
-  --region us-central1 \
-  --service-account extractor-sa@PROJECT_ID.iam.gserviceaccount.com \
-  --update-secrets=SALESFORCE_USERNAME=SALESFORCE_USERNAME:latest \
-  --update-secrets=SALESFORCE_PASSWORD=SALESFORCE_PASSWORD:latest \
-  --update-secrets=SALESFORCE_SECURITY_TOKEN=SALESFORCE_SECURITY_TOKEN:latest \
-  --update-secrets=BQ_PROJECT_EXTRACTION=BQ_PROJECT_EXTRACTION:latest \
-  --update-secrets=BQ_DATASET_EXTRACTION=BQ_DATASET_EXTRACTION:latest \
-  --memory 512Mi \
-  --task-timeout 3600
-```
-
-### Schedule with Cloud Scheduler
-
-```bash
-# Daily at 2am UTC
-gcloud scheduler jobs create http salesforce-extractor-daily \
-  --schedule="0 2 * * *" \
-  --uri="https://us-central1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/PROJECT_ID/jobs/salesforce-extractor:run" \
-  --http-method=POST \
-  --oauth-service-account-email=scheduler-sa@PROJECT_ID.iam.gserviceaccount.com \
-  --time-zone="UTC"
-```
-
-### IAM — required permissions
-
-```bash
-# Allow Cloud Scheduler SA to trigger the Cloud Run Job
-gcloud projects add-iam-policy-binding PROJECT_ID \
-  --member="serviceAccount:scheduler-sa@PROJECT_ID.iam.gserviceaccount.com" \
-  --role="roles/run.invoker"
-
-# Allow Cloud Run Job SA to write to BigQuery and read secrets
-gcloud projects add-iam-policy-binding PROJECT_ID \
-  --member="serviceAccount:extractor-sa@PROJECT_ID.iam.gserviceaccount.com" \
-  --role="roles/bigquery.dataEditor"
-
-gcloud projects add-iam-policy-binding PROJECT_ID \
-  --member="serviceAccount:extractor-sa@PROJECT_ID.iam.gserviceaccount.com" \
-  --role="roles/secretmanager.secretAccessor"
-```
-
-### Schedule reference
-
-| Cadence | Cron expression |
-|---|---|
-| Every hour | `0 * * * *` |
-| Daily at 2am UTC | `0 2 * * *` |
-| Daily at midnight | `0 0 * * *` |
-| Every 6 hours | `0 */6 * * *` |
-| Weekdays at 7am | `0 7 * * 1-5` |
+Read `01_extraction/open_meteo/main.py` for the full, working version of each
+function. It is short enough to copy whole and edit.
 
 ---
 
-## 9. Required Packages
+## 5. Incremental strategy: the destination table is the only state
 
-Adjust per extractor — only include what the source needs.
+There is no watermark file, no GCS bucket, no state table. The watermark is
+`MAX(date)` per entity, read from the table the job writes to:
 
-```
-# requirements.txt (Salesforce example)
-python-dotenv
-simple-salesforce
-google-cloud-bigquery
-google-cloud-storage   # if using GCS for watermark state
+```python
+def load_watermarks(client: bigquery.Client) -> dict[str, str]:
+    query = f"""
+        SELECT {KEY_COLUMN}, MAX(date) AS max_date
+        FROM `{table_id()}`
+        GROUP BY {KEY_COLUMN}
+    """
+    job_config = bigquery.QueryJobConfig(maximum_bytes_billed=MAX_BYTES_BILLED)
+    rows = client.query(query, job_config=job_config).result()
+    return {row[KEY_COLUMN]: row["max_date"].isoformat() for row in rows}
 ```
 
+Why this is the pattern:
+
+- **It cannot drift.** A watermark stored elsewhere can be updated after a
+  load that failed, or not updated after a load that succeeded. Reading it
+  from the data makes both impossible.
+- **The first run is automatically a backfill.** An entity with no rows has no
+  watermark and loads from the configured start date.
+- **An empty run is free.** Nothing is appended, so the next run starts from
+  the same place. There is no "don't update the watermark on failure" rule to
+  remember, because there is nothing to update.
+
+**Re-pull from the watermark inclusive, not the day after.** Most sources
+revise recent observations (FRED revises published values; Open-Meteo's last
+~5 days are provisional). Re-pulling the watermark date captures the revision.
+This means the same `(key, date)` lands more than once with different
+`extracted_at` values — that is intended. The raw table is **append-only**,
+and the dbt staging view keeps the latest row per key:
+
+```sql
+row_number() over (partition by <key>, date order by extracted_at desc) as row_num
+...
+where row_num = 1
 ```
-# requirements.txt (generic REST API example)
-python-dotenv
-requests
-google-cloud-bigquery
-google-cloud-storage
-```
+
+Tell the dbt modeler this when handing off. The staging view's dedup is part
+of the contract, not an optional cleanup.
+
+**Sources without a date filter.** If the API only offers an opaque cursor
+(Stripe's `starting_after`), still derive the restart point from the
+destination table — `MAX(created)` as a `created[gte]` filter, or the last
+seen id if ids are monotonic. Document the choice in the module docstring.
+Full refresh (truncate and reload) is acceptable only for small reference
+lists; say so explicitly and use `WRITE_TRUNCATE`.
+
+**Provisional tails.** If the source's most recent days are incomplete, stop
+the requested range short of today (`ARCHIVE_LAG_DAYS` in the Open-Meteo
+extractor) rather than loading rows that will be revised tomorrow.
 
 ---
 
-## Error Handling Rules
+## 6. Requests, rate limits and failure isolation
 
-- Validate all required environment variables at startup; fail fast
-- Raise exceptions on real API errors — do not silently continue
-- **No new data is not an error** — handle it as a clean exit (see Section 4)
-- Do not update the watermark if extraction or load fails (preserves retry from last good state)
-- Do not update the watermark if `extract()` returns empty — next run must retry from the same position
-- Log the source name and record count at each stage for Cloud Logging observability
+- **Every request has a timeout.** `requests.get(..., timeout=REQUEST_TIMEOUT_SECONDS)`.
+- **Retry 429 and 5xx with exponential backoff**, then raise. Do not retry
+  4xx other than 429 — they will not succeed on retry.
+
+  ```python
+  for attempt in range(MAX_ATTEMPTS):
+      response = requests.get(url, params=params, timeout=REQUEST_TIMEOUT_SECONDS)
+      if response.status_code == 429 or response.status_code >= 500:
+          if attempt == MAX_ATTEMPTS - 1:
+              response.raise_for_status()
+          time.sleep(2**attempt * 5)
+          continue
+      response.raise_for_status()
+      return response.json()
+  ```
+
+- **Sleep between requests** to stay under the documented rate limit. Put the
+  arithmetic in a comment next to the constant (`# ~100 req/min against a 120
+  req/min cap`).
+- **Paginate to the end.** A page shorter than the page size is the last page.
+  Never return a partial result silently.
+- **Isolate per-entity failures.** One retired series id or one bad location
+  must not cost the other entities their daily load. Catch the specific
+  failure (`UnknownSeriesError` in the FRED extractor), log it, skip the
+  entity, and fail the job only if nothing at all was extracted.
+- **No new data is not an error.** Weekends, holidays and same-day re-runs
+  legitimately return nothing. Log it and exit 0.
+
+---
+
+## 7. Writing to BigQuery
+
+- **Create the table in code on first run** (`ensure_table`) with an explicit
+  schema, `REQUIRED` mode on key columns, **month partitioning on `date`** and
+  **clustering on the entity key**. Every downstream query then prunes by
+  partition.
+- **Append with a load job, not streaming inserts.**
+  `client.load_table_from_json(rows, table_id(), job_config=LoadJobConfig(schema=BQ_SCHEMA, write_disposition=WRITE_APPEND))`.
+  Load jobs are free, enforce the schema, and never leave rows stuck in a
+  streaming buffer. Do not use `insert_rows_json`.
+- **Batch large runs.** Flush every `LOAD_BATCH_ROWS` rows so a backfill of
+  hundreds of thousands of rows does not sit in memory (FRED extractor).
+- **Stamp every row with `extracted_at`**, one timestamp per run, taken once
+  at the start of `main()`. The staging dedup and dbt source freshness both
+  depend on it.
+- **Cap the watermark query** with `maximum_bytes_billed`. It runs every day.
+- **Column names are snake_case and typed at write time.** Cast strings to
+  floats, handle the source's missing-value sentinel (`"."` in FRED is
+  `None`, not `0.0`), and never write an untyped JSON blob.
+
+---
+
+## 8. Wiring the extractor into the pipeline
+
+Adding the extractor is one of six steps; the rest are configuration.
+
+1. `01_extraction/<source>/main.py`, `requirements.txt`, `Dockerfile`
+2. New variables in `.env.example`
+3. `infra/workflows/<source-key>_pipeline.yaml` (copy `open-meteo_pipeline.yaml`, replace the key)
+4. One entry in `terraform.tfvars` under `sources` — see `terraform.tfvars.example`
+5. A `raw` source entry in `02_dbt/models/1_staging_warehouses/_sources.yml`
+   with `loaded_at_field: extracted_at` and freshness thresholds (dbt modeler)
+6. `terraform plan` → `terraform apply` → merge → images pushed by CI
+
+Timeouts: the first run backfills full history. Set `timeout` in the
+`terraform.tfvars` entry accordingly (FRED uses `3600s`; the default `600s`
+is not enough for 118 series).
+
+---
+
+## 9. Running locally
+
+```bash
+source .env
+python 01_extraction/<source>/main.py
+```
+
+This writes to `raw` in `BQ_PROJECT_EXTRACTION` with your personal
+credentials — the same table the deployed job uses. For a throwaway test,
+point `BQ_DATASET_EXTRACTION` at a scratch dataset that already exists.
+
+`ruff check 01_extraction/` must pass; CI runs it on every PR.
+
+---
+
+## 10. Definition of done
+
+- [ ] `main.py` follows the Section 4 skeleton and its docstring states the incremental strategy
+- [ ] Watermark read from the destination table; raw table is append-only
+- [ ] Table created in code: explicit schema, `REQUIRED` keys, partitioned by month on `date`, clustered on the key
+- [ ] Every request has a timeout; 429/5xx retried with backoff; sleep between requests
+- [ ] Per-entity failures logged and skipped; job fails only when nothing was extracted
+- [ ] Empty run exits 0 with a log line
+- [ ] Every row has `extracted_at`
+- [ ] `.env.example` updated; no secrets, project ids or dataset names hardcoded
+- [ ] `ruff check 01_extraction/` clean
+- [ ] `api-<source>` skill written (see the `data-extractor` agent)
