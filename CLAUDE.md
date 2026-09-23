@@ -105,6 +105,7 @@ scripts/                                # Utility shell scripts
 - Mart models: `02_dbt/models/4_marts/fct_<name>.sql` or `dim_<name>.sql`
 
 - All models must have column-level documentation and dbt tests
+- Every model carries its source key as a tag in its layer's `_schema.yml` (`config: tags: [open-meteo]`). The tag must equal the key in the `terraform.tfvars` `sources` map — each dbt Cloud Run Job selects `<layer>,tag:<source>`, so an untagged model never runs in production
 
 **Cloud Run Jobs**
 - Pattern: `{pipeline}-{stage}-{frequency}` — e.g., `indices-extract-daily`, `indices-dbt-warehouse-daily`
@@ -115,10 +116,12 @@ scripts/                                # Utility shell scripts
 | `stage` value | dbt layer | What it does | Reads from | Writes to |
 |---|---|---|---|---|
 | `extract` | — | Pulls data from the source system | External API | `raw` dataset |
-| `dbt-stg-warehouse` | `1_staging_warehouses` | Builds staging views from raw sources | `raw` dataset | `stg_warehouses` dataset |
-| `dbt-warehouse` | `2_warehouses` | Seeds reference CSVs + builds warehouse tables | `stg_warehouses` dataset | `warehouses` dataset |
-| `dbt-stg-marts` | `3_staging_marts` | Builds staging views feeding the mart layer | `warehouses` dataset | `stg_marts` dataset |
-| `dbt-mart` | `4_marts` | Builds fact and dimension tables | `stg_marts` dataset | `marts` dataset |
+| `dbt-stg-warehouse` | `1_staging_warehouses` | Builds and tests staging views from raw sources | `raw` dataset | `stg_warehouses` dataset |
+| `dbt-warehouse` | `2_warehouses` | Seeds reference CSVs + builds and tests warehouse tables | `stg_warehouses` dataset | `warehouses` dataset |
+| `dbt-stg-marts` | `3_staging_marts` | Builds and tests staging views feeding the mart layer | `warehouses` dataset | `stg_marts` dataset |
+| `dbt-mart` | `4_marts` | Builds and tests fact and dimension tables | `stg_marts` dataset | `marts` dataset |
+
+Each dbt job runs `dbt build --select <layer>,tag:<source>`, so it builds only that source's models in that layer and runs their tests. A failing test stops the workflow before the next layer.
 
 Examples:
 - `indices-extract-daily` — daily extraction of index data from Twelvedata into `raw`

@@ -2,6 +2,8 @@ version: 2
 
 models:
   - name: fct_fred_economic_indicators
+    config:
+      tags: [fred-economic]
     description: >
       Primary Looker Studio fact table for the national macro dashboard.
       One row per date. Incrementally loaded; partitioned by month on date.
@@ -70,6 +72,8 @@ models:
         description: "Timestamp when this row was written to the mart by dbt."
 
   - name: fct_fred_state_affordability
+    config:
+      tags: [fred-economic]
     description: >
       State-level affordability fact table. One row per (state_fips, date).
       Incrementally loaded; partitioned by year on date, clustered by
@@ -106,6 +110,8 @@ models:
         description: "Timestamp when this row was written to the mart by dbt."
 
   - name: fct_open_meteo_daily_weather
+    config:
+      tags: [open-meteo]
     description: >
       Daily weather fact table for Looker Studio. One row per
       (location_id, date). Incrementally loaded; partitioned by month on

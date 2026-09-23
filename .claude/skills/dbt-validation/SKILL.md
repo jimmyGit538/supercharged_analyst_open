@@ -94,6 +94,8 @@ the change is wider than intended — say so rather than building blind.
 | `+my_model` | It and everything upstream |
 | `1+my_model+` | One layer up, it, everything down |
 | `4_marts` | Every mart model (matches the layer path) |
+| `tag:open-meteo` | Every model of one source (the tag is the `terraform.tfvars` key) |
+| `4_marts,tag:open-meteo` | One source's marts — exactly what its Cloud Run Job builds |
 | `source:raw+` | Everything built off the `raw` source |
 
 Model directories are the four layers under `02_dbt/models/`, so `--select

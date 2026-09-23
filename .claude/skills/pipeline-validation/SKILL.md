@@ -103,13 +103,11 @@ Expected: row count > 0, `latest_ingestion` is within the last few minutes.
 ## Step 5 — Run dbt models manually
 
 ```bash
-cd 02_dbt
-
-# Run all models for this source
-dbt run --select ${SOURCE}
-
-# Run tests
-dbt test --select ${SOURCE}
+# Build and test every model tagged with this source, layer by layer — the
+# same selectors the Cloud Run Jobs use. SOURCE is the terraform.tfvars key.
+for layer in 1_staging_warehouses 2_warehouses 3_staging_marts 4_marts; do
+  dbt build --select "${layer},tag:${SOURCE}" --target dev \n    --profiles-dir 02_dbt --project-dir 02_dbt
+done
 ```
 
 Success: all models show `OK` status, all tests pass.

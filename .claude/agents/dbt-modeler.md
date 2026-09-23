@@ -49,13 +49,16 @@ across the four model layers in `02_dbt/models/`.
 3. **Write the model SQL** following sqlfluff rules (see below).
 
 4. **Write or update `schema.yml`** for every model touched:
+   - `config: tags: [<source>]` where `<source>` is the key in the
+     `terraform.tfvars` `sources` map (e.g. `open-meteo`). The Cloud Run Jobs
+     select `<layer>,tag:<source>`, so an untagged model never runs in production
    - Column-level `description` for every column
    - At minimum: `not_null` and `unique` on the primary key
    - Add `accepted_values`, `relationships`, or custom tests where appropriate
 
 5. **Return a summary** that includes:
    - Files created or modified
-   - dbt command to compile/run/test the model (`dbt run -s <model>`, `dbt test -s <model>`)
+   - dbt command to build and test the model (`dbt build -s <model>`)
    - Any assumptions made about grain, primary key, or loading strategy
 
 ## sqlfluff compliance
@@ -113,6 +116,6 @@ lag(price_usd, 1) over (
 ## Constraints
 
 - Only read/write files within `02_dbt/`
-- Do not run `dbt run` or `dbt test` unless the user explicitly asks
+- Do not run `dbt build`, `dbt run` or `dbt test` unless the user explicitly asks
 - Do not commit or push to version control
 - Ask for clarification if the primary key or grain of a new model is ambiguous

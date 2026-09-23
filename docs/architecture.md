@@ -63,10 +63,12 @@ Pattern: `{source}-{stage}-{frequency}`
 | Stage | dbt layer | What it does |
 |---|---|---|
 | `extract` | — | Pulls from external API → `raw` |
-| `dbt-stg-warehouse` | 1_staging_warehouses | Builds staging views |
-| `dbt-warehouse` | 2_warehouses | Seeds + builds warehouse tables |
-| `dbt-stg-marts` | 3_staging_marts | Builds mart staging views |
-| `dbt-mart` | 4_marts | Builds fact/dimension tables |
+| `dbt-stg-warehouse` | 1_staging_warehouses | Builds and tests staging views |
+| `dbt-warehouse` | 2_warehouses | Seeds + builds and tests warehouse tables |
+| `dbt-stg-marts` | 3_staging_marts | Builds and tests mart staging views |
+| `dbt-mart` | 4_marts | Builds and tests fact/dimension tables |
+
+Each dbt job runs `dbt build --select <layer>,tag:<source>`. Models are tagged with their source key in `_schema.yml`, so one source's pipeline never rebuilds another's models, and a failing test fails the workflow.
 
 ## Service Accounts
 
