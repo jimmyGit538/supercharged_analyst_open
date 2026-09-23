@@ -103,4 +103,8 @@ Claude Code agents and skills live in `.claude/`. They accelerate every part of 
 - `data-extractor` agent — writes Python extraction jobs following project conventions
 - `dbt-modeler` agent — writes staging, warehouse, and mart models with tests and docs
 
+Skills are tagged by scope in their `metadata` frontmatter — `universal` for repo-wide workflow,
+`layer` for a single layer of the stack, `source` for one external API — and indexed with their
+purpose in [`.claude/skills/README.md`](../.claude/skills/README.md).
+
 Agent and skill definitions are version-tracked in BigQuery via `infra/agent_registry/`.

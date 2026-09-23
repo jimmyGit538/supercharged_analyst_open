@@ -10,6 +10,9 @@ description: >
 
   Do NOT invoke for reviewing your own branch changes — use /security-review
   or /code-review for that instead.
+metadata:
+  tier: universal
+  domain: workflow
 ---
 
 # PR Review — Maintainer Workflow

@@ -5,6 +5,9 @@ description: >
   a new data source (terraform apply + image push), after a Cloud Run Job or Cloud
   Workflow execution, or when verifying that data landed correctly in BigQuery.
   Do NOT load for general GCP or dbt questions unrelated to validating this pipeline.
+metadata:
+  tier: layer
+  domain: infra
 ---
 
 # Pipeline Validation

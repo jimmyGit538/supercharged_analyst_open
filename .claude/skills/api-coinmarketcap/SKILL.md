@@ -5,6 +5,9 @@ description: >
   CoinMarketCap API, building CoinMarketCap extractors, or answering questions
   about CoinMarketCap endpoints, parameters, or response shapes.
   Do NOT load for general cryptocurrency discussions unrelated to the CMC API.
+metadata:
+  tier: source
+  domain: extraction
 ---
 
 # CoinMarketCap API

@@ -14,6 +14,9 @@ description: >
 
   Do NOT invoke for: modifying an existing extractor, debugging an existing pipeline, or dbt-only work
   on a source that already has a working extraction job.
+metadata:
+  tier: universal
+  domain: workflow
 ---
 
 # Add Data Source — Intake Process

@@ -10,6 +10,9 @@ description: >
   the data pipeline. Use alongside the python-data-extraction skill when a task spans
   both application code and infrastructure. Do NOT load for general Terraform questions
   unrelated to this pipeline, or for GCP console/gcloud CLI tasks that don't involve Terraform.
+metadata:
+  tier: layer
+  domain: infra
 ---
 
 # Terraform GCP Pipeline — Standards & Patterns

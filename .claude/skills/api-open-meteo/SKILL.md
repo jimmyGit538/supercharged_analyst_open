@@ -5,6 +5,9 @@ description: >
   Open-Meteo API, building Open-Meteo extractors, or answering questions
   about Open-Meteo endpoints, parameters, or response shapes. Do NOT load
   for general weather discussions unrelated to the Open-Meteo API.
+metadata:
+  tier: source
+  domain: extraction
 ---
 
 # Open-Meteo API
