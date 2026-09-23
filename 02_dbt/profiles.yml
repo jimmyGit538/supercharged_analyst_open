@@ -5,10 +5,15 @@ supercharged_analyst:
       type: bigquery
       method: oauth
       project: "{{ env_var('BQ_PROJECT') }}"
+      # generate_schema_name prefixes this onto each model's +schema, so local
+      # builds land in dbt_dev_stg_warehouses / dbt_dev_warehouses / etc.
       dataset: dbt_dev
       threads: 4
       timeout_seconds: 300
       location: us-central1
+      # Cost ceiling for local validation. Deployed targets are left uncapped so
+      # a legitimately large mart rebuild cannot be killed mid-run.
+      maximum_bytes_billed: 1000000000
     prod:
       type: bigquery
       method: service-account-impersonation
