@@ -339,4 +339,4 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 
-MIT
+MIT — see [`LICENSE`](LICENSE).
