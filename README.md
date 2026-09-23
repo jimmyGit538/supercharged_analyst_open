@@ -253,7 +253,7 @@ merges to `main`, the Deploy workflow pushes them to Artifact Registry.
 
 ## dbt Local Development
 
-The dbt project lives in `02_dbt/` with a non-standard `profiles.yml` location. Use the `dev` target, which authenticates via your personal GCP credentials and writes to the `dbt_dev` BigQuery dataset (isolated from production).
+The dbt project lives in `02_dbt/` with a non-standard `profiles.yml` location. Use the `dev` target, which authenticates via your personal GCP credentials and writes to `dbt_dev_`-prefixed datasets (`dbt_dev_stg_warehouses`, `dbt_dev_warehouses`, `dbt_dev_stg_marts`, `dbt_dev_marts`), isolated from the production datasets Looker Studio reads. The prefix comes from the `generate_schema_name` macro, not from the `dataset:` field in `profiles.yml`.
 
 **Prerequisites:**
 - `BQ_PROJECT` set in your `.env`
@@ -289,7 +289,7 @@ source .env
 dbt run --project-dir 02_dbt
 ```
 
-Models land in the `dbt_dev` dataset in BigQuery under your GCP project.
+Models land in the `dbt_dev_*` datasets in BigQuery under your GCP project — one per layer, created on first build.
 
 ## Project Structure
 
