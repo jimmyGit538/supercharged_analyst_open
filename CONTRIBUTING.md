@@ -74,7 +74,9 @@ Upstream contributions are things that benefit every user of the template:
 
 Skills are Claude Code reference documents that auto-load when relevant. A good candidate is a public API reference or a reusable data pipeline pattern that many users of this template would need.
 
-**File location:** `.claude/skills/<name>/SKILL.md`
+**File location:** `.claude/skills/<name>/SKILL.md` — flat, no category subfolder. Claude Code only
+discovers skills at exactly that path; nesting one inside a category directory silently disables it.
+See [`.claude/skills/README.md`](.claude/skills/README.md) for the skill index and what each tier means.
 
 **Format:** YAML frontmatter followed by markdown documentation.
 
@@ -86,14 +88,28 @@ description: >
   building My API extractors, or answering questions about My API endpoints,
   parameters, or response shapes. Do NOT load for general discussions
   unrelated to the My API.
+metadata:
+  tier: source
+  domain: extraction
 ---
 ```
 
+`description` is the only thing Claude sees when deciding whether to load the skill, so state both
+when to auto-invoke and when *not* to. Keep every line of a `>` block indented — a line starting at
+column 0 ends the block and makes the frontmatter invalid, which drops the description silently.
+
+`metadata.tier` is `universal` (repo-wide workflow), `layer` (one layer of the stack), or `source`
+(one external API); `metadata.domain` is `workflow`, `extraction`, `modeling`, or `infra`. A new API
+reference is almost always `source` / `extraction`.
+
 Follow the body with endpoint documentation, common parameters, response shapes, and annotated code examples. Look at the existing skills for reference:
 
-- `.claude/skills/fred-api/SKILL.md` — FRED economic data API
-- `.claude/skills/coinmarketcap-api/SKILL.md` — CoinMarketCap API
+- `.claude/skills/api-fred/SKILL.md` — FRED economic data API
+- `.claude/skills/api-coinmarketcap/SKILL.md` — CoinMarketCap API
 - `.claude/skills/terraform-gcp-pipeline/SKILL.md` — GCP Terraform patterns
+
+Finally, add a row for the new skill to the index table in
+[`.claude/skills/README.md`](.claude/skills/README.md).
 
 PR title convention: `add <name> skill`
 

@@ -9,6 +9,9 @@ description: >
   "first-time setup", "get this running", "onboard me". Do NOT invoke for
   adding a new data source (use /add-data-source) or for debugging an
   already-working pipeline.
+metadata:
+  tier: universal
+  domain: workflow
 ---
 
 # Fork Setup

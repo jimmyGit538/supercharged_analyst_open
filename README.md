@@ -309,10 +309,14 @@ infra/
   agent_registry/       # BigQuery audit log for agent/skill versions
 .claude/
   agents/               # Claude Code subagent definitions
-  skills/               # Claude Code skill definitions
+  skills/               # Claude Code skill definitions (see .claude/skills/README.md)
 docs/                   # Architecture and reference docs
 .github/workflows/      # CI only — lint + Docker build/push
 ```
+
+Skills are grouped into three tiers by their `metadata.tier` frontmatter — `universal` (repo-wide
+workflow), `layer` (one layer of the stack) and `source` (one external API each, the tier your fork
+grows). [`.claude/skills/README.md`](.claude/skills/README.md) indexes all of them.
 
 ## Adding More Data Sources
 
