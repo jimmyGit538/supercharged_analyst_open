@@ -42,8 +42,12 @@ concerns.
 |---|---|---|---|
 | [`python-data-extraction`](python-data-extraction/SKILL.md) | extraction | Extractor structure, credential handling, incremental watermarks, writing to BigQuery. | `01_extraction/` |
 | [`data-pipeline-patterns`](data-pipeline-patterns/SKILL.md) | modeling | Choosing a loading strategy — full refresh vs. incremental vs. upsert. | `02_dbt/` |
+| [`dbt-validation`](dbt-validation/SKILL.md) | modeling | Validating a local dbt change before pushing — lint, parse, dry build, refactor integrity. | `02_dbt/` |
 | [`terraform-gcp-pipeline`](terraform-gcp-pipeline/SKILL.md) | infra | Terraform patterns for Cloud Run Jobs, Scheduler, Workflows, IAM, Secret Manager. | `infra/terraform/` |
 | [`pipeline-validation`](pipeline-validation/SKILL.md) | infra | Verifying a deployed pipeline end-to-end — job executions, data landing in BigQuery. | `infra/` |
+
+`dbt-validation` and `pipeline-validation` are complementary and easy to confuse: validate the
+**code** locally before pushing, validate the **deployment** after `terraform apply`.
 
 ## Tier 3 — `source`
 
