@@ -80,7 +80,13 @@ skill as part of the job (step 6 below).
    entry is `secrets = { <NAME> = "latest" }`. Never write `gcloud run` or
    `gcloud scheduler` commands.
 
-5. **Lint.** Run `ruff check 01_extraction/<source>/` and fix everything.
+5. **Test.** Copy the closer of `tests/test_open_meteo.py` and
+   `tests/test_fred_economic.py` to `tests/test_<source>.py` and keep the same
+   checks: sentinel handling, pagination termination, retry on 429/5xx,
+   watermark start dates, per-entity failure isolation, clean empty run.
+   Patch `_request`, `requests.get` and `time.sleep` on the loaded module —
+   never call the real API or BigQuery from a test. Then run
+   `ruff check 01_extraction/<source>/ tests/` and `pytest tests/` and fix everything.
 
 6. **Create the `api-<source>` skill** at `.claude/skills/api-<source>/SKILL.md`
    if it does not exist, and add a row to the Tier 3 table in

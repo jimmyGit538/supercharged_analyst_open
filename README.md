@@ -8,7 +8,7 @@ A GCP-native modern data stack template for small analytics teams. Fork this rep
 - **dbt transformation pipeline** — 4-layer model architecture (staging → warehouse → staging marts → marts) landing in BigQuery
 - **Cloud Workflows orchestration** — 5-stage pipeline per source, triggered by Cloud Scheduler
 - **Terraform-managed infrastructure** — all GCP resources declared as code, one config file to add a new source
-- **GitHub Actions CI** — lints Python + SQL and builds every Docker image on each PR, then pushes to Artifact Registry on merge to `main`
+- **GitHub Actions CI** — lints Python + SQL, unit tests the extractors, and builds every Docker image on each PR, then pushes to Artifact Registry on merge to `main`
 - **Claude Code agents** — AI-powered `/add-data-source` skill that scaffolds a full new pipeline end-to-end
 - **Agent Registry** — append-only BigQuery audit log of every agent and skill version
 
@@ -250,6 +250,21 @@ reference for a source needing a Secret-Manager-backed API key.
 
 After the skill completes, open a PR — CI lints and builds the Docker images. Once the PR
 merges to `main`, the Deploy workflow pushes them to Artifact Registry.
+
+## Extractor Unit Tests
+
+The extractors' pure logic — pagination, missing-value sentinels, retry and backoff, watermark
+start dates, per-entity failure isolation — is covered by pytest in `tests/`. Nothing there
+touches the network or BigQuery, so the suite runs anywhere in a few seconds and CI runs it
+on every PR.
+
+```bash
+pip install pytest -r 01_extraction/open_meteo/requirements.txt -r 01_extraction/fred_economic/requirements.txt
+pytest tests/          # or: make test
+```
+
+`tests/test_open_meteo.py` and `tests/test_fred_economic.py` are the reference tests to copy
+when you add a source: one file per extractor, the same handful of checks.
 
 ## dbt Local Development
 
