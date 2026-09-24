@@ -32,20 +32,16 @@ infra/                                  # GCP infrastructure (Terraform + legacy
     variables.tf                        # Input variables (project_id, region, sources map)
     locals.tf                           # Auto-generates Cloud Run Jobs from sources map
     sources.tf                          # Cloud Run Jobs + Cloud Scheduler (for_each)
-    workflows.tf                        # Cloud Workflows (references YAML via file())
+    workflows.tf                        # Cloud Workflows, rendered per source from templates/pipeline_workflow.yaml
     iam.tf                              # 5 service accounts, IAM bindings, WIF
     bigquery.tf                         # BigQuery datasets
     artifact_registry.tf                # Docker image repository
     secrets.tf                          # Secret Manager validation
     outputs.tf                          # Useful outputs (SA emails, job names, WIF provider)
     terraform.tfvars.example            # Template — copy to terraform.tfvars and fill in values
+    templates/
+      pipeline_workflow.yaml            # Cloud Workflow rendered once per source ({source}, {frequency} placeholders)
     import.sh                           # One-time import of existing GCP resources into state
-  workflows/                            # Cloud Workflow YAML definitions
-    example_pipeline.yaml               # Example Cloud Workflow orchestrating Cloud Run Jobs in sequence
-    open-meteo_pipeline.yaml            # Zero-setup reference pipeline for the open-meteo source (no API key)
-    fred-economic_pipeline.yaml         # Optional keyed-source example pipeline for the fred-economic source
-    create_jobs.sh                      # Legacy: manual job creation (superseded by Terraform)
-    deploy.sh                           # Legacy: manual workflow deployment (superseded by Terraform)
   setup.sh                              # Legacy: one-time GCP bootstrap (superseded by Terraform)
   agent_registry/                       # Registry that snapshots agent/skill changes to BigQuery
     schema.sql                          # DDL: agent_snapshots, skill_snapshots tables
@@ -140,21 +136,21 @@ Examples:
 
 ## Infrastructure (Terraform)
 
-All GCP infrastructure is managed by Terraform in `infra/terraform/`. This is the source of truth for infrastructure — the legacy shell scripts (`setup.sh`, `create_jobs.sh`, `deploy.sh`) are retained as reference but superseded by Terraform.
+All GCP infrastructure is managed by Terraform in `infra/terraform/`. This is the source of truth for infrastructure — the legacy `infra/setup.sh` is retained as reference but superseded by Terraform.
 
 **Adding a new data source:**
 
 > Before starting any work on a new data source, invoke the `add-data-source` skill (`/add-data-source`) to complete the intake process. No code should be written until all intake questions are answered and API research is complete.
 
 1. Create `01_extraction/<source>/main.py`, `requirements.txt`, `Dockerfile`
-2. Create `infra/workflows/<source>_pipeline.yaml` (Cloud Workflow definition)
-3. Add one entry to `terraform.tfvars` in the `sources` map
-4. Run `terraform plan` to review, then `terraform apply`
-5. Push Docker images via GitHub Actions CI
+2. Add one entry to `terraform.tfvars` in the `sources` map
+3. Run `terraform plan` to review, then `terraform apply`
+4. Push Docker images via GitHub Actions CI
 
-Terraform auto-generates 5 Cloud Run Jobs per source from the `sources` map:
-- 1 extraction job (source-specific Docker image)
-- 4 dbt jobs (shared `dbt-runner` image, stage-specific commands)
+Terraform generates everything else per source from the `sources` map:
+- 1 extraction Cloud Run Job (source-specific Docker image)
+- 4 dbt Cloud Run Jobs (shared `dbt-runner` image, stage-specific commands)
+- 1 Cloud Workflow rendered from `templates/pipeline_workflow.yaml`, plus its Cloud Scheduler trigger
 
 **Service accounts** (5 total, managed in `iam.tf`):
 

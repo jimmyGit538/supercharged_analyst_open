@@ -10,7 +10,7 @@ if [[ "$REMOTE_URL" != *"supercharged_analyst_open"* ]]; then
   exit 0
 fi
 
-PROTECTED_PATHS="01_extraction 02_dbt infra/workflows"
+PROTECTED_PATHS="01_extraction 02_dbt"
 
 while read local_ref local_sha remote_ref remote_sha; do
   # Determine range of commits being pushed

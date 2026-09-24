@@ -29,7 +29,7 @@ Key architecture decisions:
 - 5 specialized service accounts with least-privilege IAM (extraction-runner, dbt-runner, github-actions-ci, workflow-runner, scheduler-runner)
 - Artifact Registry as the Docker image store
 - Secret Manager for credentials (not env vars)
-- Workflow YAML files referenced via `file()`, not generated inline
+- One workflow YAML template (`templates/pipeline_workflow.yaml`) rendered per source with `replace()`; `templatefile()` is avoided because the Workflows YAML is full of `${...}` expressions it would try to evaluate
 
 ---
 
@@ -41,7 +41,7 @@ infra/
 │   ├── main.tf               # provider config, GCP API enablement
 │   ├── variables.tf          # input variables (project_id, region, sources map)
 │   ├── sources.tf            # for_each loop: Cloud Run Jobs + Cloud Schedulers
-│   ├── workflows.tf          # Cloud Workflows definition
+│   ├── workflows.tf          # Cloud Workflows, one per source from templates/pipeline_workflow.yaml
 │   ├── iam.tf                # service accounts and role bindings
 │   ├── artifact_registry.tf  # Docker repo
 │   ├── secrets.tf            # Secret Manager secret references
@@ -278,33 +278,41 @@ resource "google_cloud_scheduler_job" "extractor_trigger" {
 
 ## 9. Cloud Workflows (`workflows.tf`)
 
-This generates a sequential workflow from the sources map. If the existing Cloud Workflows setup uses parallel steps, error handling, or conditional branches, maintain the workflow YAML as a separate template file and reference it with `templatefile()` instead of generating inline.
+One workflow per source, all rendered from a single YAML template. The template
+is hand-written Workflows YAML with polling and error handling; Terraform only
+substitutes the source key and frequency.
 
 ```hcl
-resource "google_workflows_workflow" "extraction_pipeline" {
-  name            = "data-extraction-pipeline"
+locals {
+  pipeline_template = file("${path.module}/templates/pipeline_workflow.yaml")
+
+  workflow_contents = {
+    for name, src in var.sources :
+    name => src.workflow_file != null
+    ? file("${path.module}/${src.workflow_file}")
+    : replace(replace(local.pipeline_template, "{source}", name), "{frequency}", src.frequency)
+  }
+}
+
+resource "google_workflows_workflow" "pipelines" {
+  for_each        = var.sources
+  name            = "${each.key}-pipeline"
   region          = var.region
-  service_account = google_service_account.extractor.email
-
-  source_contents = yamlencode({
-    main = {
-      steps = [
-        for key, source in var.sources : {
-          "extract_${key}" = {
-            call = "googleapis.run.v1.namespaces.jobs.run"
-            args = {
-              name = "namespaces/${var.project_id}/jobs/extract-${key}"
-            }
-            result = "result_${key}"
-          }
-        }
-      ]
-    }
-  })
-
-  depends_on = [google_cloud_run_v2_job.extractor]
+  service_account = google_service_account.workflow_runner.id
+  source_contents = local.workflow_contents[each.key]
 }
 ```
+
+Why `replace()` and not `templatefile()`: Workflows YAML is full of `${...}`
+expressions (`${jobs_base + "..."}`, `${sys.get_env(...)}`), which
+`templatefile()` would try to evaluate as Terraform interpolation. Every one
+would need escaping as `$${...}`, which makes the template unreadable. Two
+plain-text placeholders, `{source}` and `{frequency}`, avoid that entirely.
+
+A source whose pipeline is not the standard five-job sequence sets
+`workflow_file` in its `sources` entry to a hand-written YAML path relative to
+`infra/terraform/`. Reach for this only when the shape genuinely differs — a
+conditional in the template is usually the wrong fix.
 
 To import an existing workflow into Terraform state instead of recreating it:
 ```bash

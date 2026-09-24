@@ -47,7 +47,7 @@ git cherry-pick <sha>
 git push origin my-contribution
 ```
 
-If you try to push a branch that touches `01_extraction/`, `02_dbt/`, or `infra/workflows/`, the pre-push hook will block it and tell you which commits are the problem.
+If you try to push a branch that touches `01_extraction/` or `02_dbt/`, the pre-push hook will block it and tell you which commits are the problem.
 
 > **Advanced:** If you prefer working in a single directory across both repos, you can optionally add your private repo as a remote (`git remote add private <url>`) and cherry-pick directly between them.
 

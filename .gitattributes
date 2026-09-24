@@ -2,4 +2,3 @@
 01_extraction/**        merge=ours
 02_dbt/**               merge=ours
 docs/**                 merge=ours
-infra/workflows/**      merge=ours

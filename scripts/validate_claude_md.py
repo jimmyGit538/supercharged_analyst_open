@@ -6,7 +6,6 @@ Checks:
   A. Every .tf file listed in CLAUDE.md exists at infra/terraform/
   B. Every .tf file in infra/terraform/ is listed in CLAUDE.md
   C. Every extraction source (01_extraction/<name>/main.py) is mentioned in CLAUDE.md
-  D. Every .yaml file in infra/workflows/ is listed in CLAUDE.md, and vice versa
 
 Exit 0 if all checks pass, exit 1 if any fail.
 """
@@ -15,7 +14,6 @@ import fnmatch
 import re
 import sys
 from pathlib import Path
-
 
 RUNTIME_IGNORES = {
     "terraform.tfstate",
@@ -29,28 +27,7 @@ DIR_BLOCK_RE = re.compile(
     re.DOTALL,
 )
 TF_TOKEN_RE = re.compile(r"^\s+(\w[\w\-.]+\.tf)\b", re.MULTILINE)
-YAML_TOKEN_RE = re.compile(r"^\s+(\w[\w\-.]+\.ya?ml)\b", re.MULTILINE)
 EXTRACTION_SOURCE_RE = re.compile(r"01_extraction/(\w[\w\-]*)/")
-
-
-def extract_workflows_yaml_tokens(dir_block: str) -> set:
-    """Return YAML filenames only from the infra/workflows/ subsection of the dir block."""
-    tokens = set()
-    in_workflows = False
-    for line in dir_block.splitlines():
-        # Enter the workflows/ subsection (exactly 2-space indent)
-        if re.match(r"^  workflows/", line):
-            in_workflows = True
-            continue
-        if in_workflows:
-            # Children of workflows/ have 4+ spaces; anything shallower ends the section
-            if re.match(r"^\s{4,}\S", line):
-                m = YAML_TOKEN_RE.match(line)
-                if m:
-                    tokens.add(m.group(1))
-            else:
-                in_workflows = False
-    return tokens
 
 
 def find_repo_root() -> Path:
@@ -138,33 +115,6 @@ def main() -> int:
         failures += 1
     else:
         print(f"[PASS] Extraction sources: {len(real_sources)} source(s), all documented")
-
-    # --- Check D: workflow YAMLs — bidirectional check ---
-    listed_yaml = extract_workflows_yaml_tokens(dir_block)
-    workflows_dir = repo_root / "infra" / "workflows"
-    disk_yaml = {
-        p.name
-        for p in list(workflows_dir.glob("*.yaml")) + list(workflows_dir.glob("*.yml"))
-        if not is_ignored(p.name, ignore_patterns)
-    }
-    missing_yaml = sorted(listed_yaml - disk_yaml)
-    undocumented_yaml = sorted(disk_yaml - listed_yaml)
-
-    if missing_yaml:
-        print("[FAIL] Listed workflow YAMLs missing from disk:")
-        for f in missing_yaml:
-            print(f"       - infra/workflows/{f}  (listed in CLAUDE.md but not found on disk)")
-        failures += 1
-    else:
-        print(f"[PASS] All workflow YAML files listed in CLAUDE.md exist on disk")
-
-    if undocumented_yaml:
-        print("[FAIL] Undocumented workflow YAMLs (on disk but not listed in CLAUDE.md):")
-        for f in undocumented_yaml:
-            print(f"       + infra/workflows/{f}  (add to CLAUDE.md Directory Structure)")
-        failures += 1
-    else:
-        print(f"[PASS] All {len(disk_yaml)} workflow YAML(s) in infra/workflows/ are documented")
 
     print()
     if failures:

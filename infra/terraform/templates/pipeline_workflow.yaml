@@ -1,17 +1,21 @@
-# Cloud Workflows definition: {source}_pipeline
+# Cloud Workflows definition — one rendered copy per entry in the terraform.tfvars
+# `sources` map. workflows.tf substitutes the entry's key and frequency into the
+# two brace-wrapped placeholders below with plain string replacement (not
+# templatefile(), so the `${...}` Workflows expressions need no escaping).
 #
-# Template — copy this file and replace {source} with your source name
-# (must match the key used in terraform.tfvars sources map).
-#
-# Runs five Cloud Run Jobs in sequence:
-#   1. {source}-extract-daily           (extraction → raw dataset)
-#   2. {source}-dbt-stg-warehouse-daily (dbt 1_staging_warehouses → stg_warehouses)
-#   3. {source}-dbt-warehouse-daily     (dbt 2_warehouses → warehouses)
-#   4. {source}-dbt-stg-marts-daily     (dbt 3_staging_marts → stg_marts)
-#   5. {source}-dbt-mart-daily          (dbt 4_marts → marts)
+# Runs the source's five Cloud Run Jobs in sequence:
+#   1. {source}-extract-{frequency}           (extraction → raw dataset)
+#   2. {source}-dbt-stg-warehouse-{frequency} (dbt 1_staging_warehouses → stg_warehouses)
+#   3. {source}-dbt-warehouse-{frequency}     (dbt 2_warehouses → warehouses)
+#   4. {source}-dbt-stg-marts-{frequency}     (dbt 3_staging_marts → stg_marts)
+#   5. {source}-dbt-mart-{frequency}          (dbt 4_marts → marts)
 #
 # Triggered by Cloud Scheduler on the schedule defined in terraform.tfvars.
-# If any job fails the workflow exits with an error — visible in Cloud Logging.
+# If any job fails the workflow raises, the execution is marked FAILED, and the
+# alert in monitoring.tf fires (if alert_email is set).
+#
+# A source that genuinely needs a different shape can set `workflow_file` in its
+# sources map entry to a hand-written YAML path instead of using this template.
 
 main:
   params: [args]
@@ -27,7 +31,7 @@ main:
     - run_extraction:
         call: http.post
         args:
-          url:  ${jobs_base + "{source}-extract-daily:run"}
+          url:  ${jobs_base + "{source}-extract-{frequency}:run"}
           auth:
             type: OAuth2
         result: extraction_op
@@ -48,7 +52,7 @@ main:
     - run_dbt_stg_warehouse:
         call: http.post
         args:
-          url:  ${jobs_base + "{source}-dbt-stg-warehouse-daily:run"}
+          url:  ${jobs_base + "{source}-dbt-stg-warehouse-{frequency}:run"}
           auth:
             type: OAuth2
         result: dbt_stg_warehouse_op
@@ -69,7 +73,7 @@ main:
     - run_dbt_warehouse:
         call: http.post
         args:
-          url:  ${jobs_base + "{source}-dbt-warehouse-daily:run"}
+          url:  ${jobs_base + "{source}-dbt-warehouse-{frequency}:run"}
           auth:
             type: OAuth2
         result: dbt_warehouse_op
@@ -90,7 +94,7 @@ main:
     - run_dbt_stg_marts:
         call: http.post
         args:
-          url:  ${jobs_base + "{source}-dbt-stg-marts-daily:run"}
+          url:  ${jobs_base + "{source}-dbt-stg-marts-{frequency}:run"}
           auth:
             type: OAuth2
         result: dbt_stg_marts_op
@@ -111,7 +115,7 @@ main:
     - run_dbt_mart:
         call: http.post
         args:
-          url:  ${jobs_base + "{source}-dbt-mart-daily:run"}
+          url:  ${jobs_base + "{source}-dbt-mart-{frequency}:run"}
           auth:
             type: OAuth2
         result: dbt_mart_op

@@ -6,7 +6,7 @@ A GCP-native modern data stack template for small analytics teams. Fork this rep
 
 - **Containerised extraction jobs** — one Docker image per data source, running as Cloud Run Jobs
 - **dbt transformation pipeline** — 4-layer model architecture (staging → warehouse → staging marts → marts) landing in BigQuery
-- **Cloud Workflows orchestration** — 5-stage pipeline per source, triggered by Cloud Scheduler
+- **Cloud Workflows orchestration** — 5-stage pipeline per source, rendered from one template and triggered by Cloud Scheduler
 - **Terraform-managed infrastructure** — all GCP resources declared as code, one config file to add a new source
 - **GitHub Actions CI** — lints Python + SQL and builds every Docker image on each PR, then pushes to Artifact Registry on merge to `main`
 - **Claude Code agents** — AI-powered `/add-data-source` skill that scaffolds a full new pipeline end-to-end
@@ -241,8 +241,7 @@ The skill walks you through:
 2. Extraction strategy (full refresh vs incremental)
 3. Generates `01_extraction/<source>/main.py`, `Dockerfile`, `requirements.txt`
 4. Generates all 4 layers of dbt models
-5. Generates `infra/workflows/<source>_pipeline.yaml`
-6. Adds the entry to `terraform.tfvars`
+5. Adds the entry to `terraform.tfvars`
 
 `01_extraction/open_meteo/` and the `open_meteo` dbt models are the reference
 implementation to copy from for a no-auth source; `01_extraction/fred_economic/` is the
@@ -305,7 +304,6 @@ Models land in the `dbt_dev_*` datasets in BigQuery under your GCP project — o
     4_marts/                # Fact and dimension tables       → marts
 infra/
   terraform/            # All GCP infrastructure as code
-  workflows/            # Cloud Workflow YAML definitions (one per source)
   agent_registry/       # BigQuery audit log for agent/skill versions
 .claude/
   agents/               # Claude Code subagent definitions
@@ -324,10 +322,9 @@ Each new source follows the same pattern. The `/add-data-source` skill handles a
 
 1. Create `01_extraction/<source>/` with `main.py`, `requirements.txt`, `Dockerfile`
 2. Add dbt models in the appropriate `02_dbt/models/` layers
-3. Copy `infra/workflows/example_pipeline.yaml` → `infra/workflows/<source>_pipeline.yaml` and replace `{source}` placeholders
-4. Add an entry to `terraform.tfvars` under `sources`
-5. Run `terraform plan` then `terraform apply`
-6. Open a PR to trigger CI and push Docker images
+3. Add an entry to `terraform.tfvars` under `sources` — the Cloud Workflow is rendered for you
+4. Run `terraform plan` then `terraform apply`
+5. Open a PR to trigger CI and push Docker images
 
 ## Architecture
 

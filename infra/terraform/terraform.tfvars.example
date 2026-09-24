@@ -13,7 +13,10 @@ github_repo = "YOUR_GITHUB_ORG/YOUR_REPO_NAME"
 # Two naming rules the map key must obey:
 #   - It becomes the Cloud Run Job and Cloud Workflow name, so it must be lowercase
 #     letters, digits and hyphens only — no underscores.
-#   - infra/workflows/<key>_pipeline.yaml must exist (workflows.tf reads it via file()).
+#
+# The Cloud Workflow is rendered from templates/pipeline_workflow.yaml — no per-source
+# YAML to write. Set `workflow_file = "path/relative/to/this/dir.yaml"` on an entry
+# only if that source needs a different shape from the standard five-job sequence.
 #
 # Secret Manager secret names must equal the environment variable name the job expects
 # — sources.tf maps them 1:1 (secret_key_ref { secret = <the key below> }).
