@@ -110,6 +110,21 @@ Or re-save the file in your editor with UTF-8 (no BOM) encoding.
 
 ---
 
+### pytest failures (`Unit test extractors` step)
+
+`pytest tests/` runs after ruff in the `lint` job. The tests load each
+`01_extraction/<source>/main.py` by path and patch its HTTP and BigQuery calls,
+so a failure is a logic regression in the extractor, not an environment problem.
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `ModuleNotFoundError` while importing an extractor | A new `requirements.txt` entry CI didn't install, or an import moved out of `main.py` | CI installs every `01_extraction/*/requirements.txt`; check the package is listed there |
+| `AttributeError: module has no attribute '_request'` (or `extract_*`, `load_watermarks`) | The extractor renamed a function the test patches | Keep the skeleton names from the `python-data-extraction` skill, or update the test with the rename |
+| Assertion on `sleeps == [5, 10]` | Backoff arithmetic changed | Backoff is `2**attempt * 5`; if the change is intended, update the test |
+| A test hangs | Something reached the real network | Patch `requests.get` or `_request` on the module; see `tests/conftest.py` |
+
+Reproduce locally with `pytest tests/ -x -q`.
+
 ## `docker-build` job failures
 
 ### Bad `requirements.txt`

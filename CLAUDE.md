@@ -61,10 +61,14 @@ infra/                                  # GCP infrastructure (Terraform + legacy
 docs/                                   # Strategy documents and reference material
   architecture.md                       # Full strategy and architecture reference
   system_overview.svg                   # System architecture diagram
+tests/                                  # pytest unit tests for the extractors (no network, no BigQuery)
+  conftest.py                           # Loads 01_extraction/<source>/main.py by path; fake response and BigQuery fixtures
+  test_open_meteo.py                    # Reference tests for a keyless, one-request-per-entity extractor
+  test_fred_economic.py                 # Reference tests for a keyed, offset-paginated extractor
 scripts/                                # Utility shell scripts
   setup.sh                              # One-time environment/project setup script
-.github/workflows/                      # CI only: lint + docker build+push (NOT pipeline scheduling)
-  ci.yml                                # Lint, test, and Docker build+push on PR/push
+.github/workflows/                      # CI only: lint + test + docker build+push (NOT pipeline scheduling)
+  ci.yml                                # Lint, unit test extractors, and Docker build on PR
   deploy.yml                            # Deployment workflow
 ```
 

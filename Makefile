@@ -1,10 +1,13 @@
-.PHONY: setup setup-local dbt-debug dbt-run dbt-test tf-plan tf-apply
+.PHONY: setup setup-local test dbt-debug dbt-run dbt-test tf-plan tf-apply
 
 setup:       ## Full-stack setup (git, dbt, .env, tfvars, terraform init)
 	bash scripts/setup.sh --full-stack
 
 setup-local: ## Local dev only (git hooks + dbt)
 	bash scripts/setup.sh --local-dev
+
+test:        ## Unit test the extractors (no GCP access needed)
+	pytest tests/
 
 dbt-debug:   ## Verify BigQuery connection
 	dbt debug --profiles-dir 02_dbt --project-dir 02_dbt
