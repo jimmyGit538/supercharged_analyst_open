@@ -81,6 +81,16 @@ def test_request_page_retries_on_5xx(monkeypatch, no_sleep):
     assert sleeps == [5]
 
 
+# ── validate_environment ─────────────────────────────────────────────────────────
+
+
+def test_validate_environment_fails_fast_without_an_api_key():
+    # conftest cleared the environment and disabled .env, so nothing is set.
+    assert fred.FRED_API_KEY is None
+    with pytest.raises(OSError, match="FRED_API_KEY"):
+        fred.validate_environment()
+
+
 # ── main: watermarks and failure isolation ──────────────────────────────────────
 
 

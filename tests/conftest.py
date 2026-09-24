@@ -7,14 +7,25 @@ so tests load each `main.py` by path.
 
 Nothing here touches the network or BigQuery. Tests patch `_request`,
 `requests.get`, `time.sleep` and the BigQuery helpers on the loaded module.
+
+The tests must also not depend on the developer's `.env`: every extractor calls
+`load_dotenv()` at import, so this file disables it and clears the pipeline
+variables before any extractor is loaded. Configuration a test needs is set
+explicitly on the module by the `fake_bigquery` fixture.
 """
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 from types import ModuleType
 
+import dotenv
 import pytest
+
+dotenv.load_dotenv = lambda *args, **kwargs: False  # never read a developer's .env
+for _var in ("BQ_PROJECT", "BQ_PROJECT_EXTRACTION", "BQ_DATASET_EXTRACTION", "FRED_API_KEY"):
+    os.environ.pop(_var, None)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EXTRACTION_DIR = REPO_ROOT / "01_extraction"
@@ -63,6 +74,10 @@ def no_sleep(monkeypatch):
 def fake_bigquery(monkeypatch):
     """Replace the BigQuery side of a loaded extractor with in-memory stand-ins.
 
+    Also supplies the configuration `validate_environment()` requires — a
+    project id and any `*_API_KEY` constant — so `main()` can run with no
+    environment at all.
+
     Returns a dict the test can inspect: `appended` holds every row passed to
     `append_rows`, and `watermarks` is what `load_watermarks` will return.
     """
@@ -70,6 +85,10 @@ def fake_bigquery(monkeypatch):
 
     def patch(module: ModuleType, watermarks: dict | None = None) -> dict:
         state["watermarks"] = watermarks or {}
+        monkeypatch.setattr(module, "BQ_PROJECT", "test-project")
+        for name in dir(module):
+            if name.endswith("_API_KEY"):
+                monkeypatch.setattr(module, name, "test-key")
         monkeypatch.setattr(module.bigquery, "Client", lambda project=None: object())
         monkeypatch.setattr(module, "ensure_table", lambda client: None)
         monkeypatch.setattr(module, "load_watermarks", lambda client: dict(state["watermarks"]))

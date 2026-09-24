@@ -255,8 +255,8 @@ merges to `main`, the Deploy workflow pushes them to Artifact Registry.
 
 The extractors' pure logic — pagination, missing-value sentinels, retry and backoff, watermark
 start dates, per-entity failure isolation — is covered by pytest in `tests/`. Nothing there
-touches the network or BigQuery, so the suite runs anywhere in a few seconds and CI runs it
-on every PR.
+touches the network, BigQuery, or your `.env`, so the suite runs anywhere in a few seconds
+and CI runs it on every PR.
 
 ```bash
 pip install pytest -r 01_extraction/open_meteo/requirements.txt -r 01_extraction/fred_economic/requirements.txt

@@ -72,6 +72,16 @@ def test_request_gives_up_after_max_attempts(monkeypatch, no_sleep):
         om._request(LOCATION, "2024-01-01", "2024-01-02")
 
 
+# ── validate_environment ─────────────────────────────────────────────────────────
+
+
+def test_validate_environment_fails_fast_without_a_project():
+    # conftest cleared the environment and disabled .env, so nothing is set.
+    assert om.BQ_PROJECT is None
+    with pytest.raises(OSError, match="BQ_PROJECT"):
+        om.validate_environment()
+
+
 # ── main: watermark handling ──────────────────────────────────────────────────────
 
 
