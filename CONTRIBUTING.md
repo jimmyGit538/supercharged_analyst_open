@@ -143,7 +143,7 @@ PR title conventions:
 ## PR conventions
 
 - All changes go through a GitHub PR — no direct pushes to `main`
-- CI must pass (Python lint, SQL lint, Docker build)
+- CI must pass (Python lint, extractor unit tests, SQL lint, Docker build)
 - One logical change per PR; keep diffs reviewable
 
 ## Agent Registry

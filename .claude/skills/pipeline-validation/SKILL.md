@@ -149,3 +149,11 @@ gcloud workflows executions list ${SOURCE}-pipeline \
 ```
 
 A `SUCCEEDED` state confirms the full pipeline runs end-to-end without manual intervention.
+
+If `alert_email` is set in `terraform.tfvars`, a `FAILED` execution also sends an email within
+about five minutes. To prove the alert path once, the least invasive trigger is a dbt test
+failure: the workflow raises at that stage and the incident names the workflow in its
+`workflow_id` label. Confirm the policy exists with:
+```bash
+gcloud alpha monitoring policies list --project $PROJECT_ID \n  --filter='displayName="Data pipeline workflow failed"'
+```

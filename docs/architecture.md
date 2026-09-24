@@ -88,6 +88,15 @@ All GCP resources are managed by Terraform in `infra/terraform/`. The `sources` 
 
 See `infra/terraform/terraform.tfvars.example` for the configuration format.
 
+## Failure Alerting
+
+`infra/terraform/monitoring.tf` creates one Cloud Monitoring alert policy covering every source
+workflow. It fires when an execution finishes with status `FAILED` and emails `alert_email` from
+`terraform.tfvars`. Any job in the chain that exits non-zero — an extractor crash, a dbt build
+error, or a failing dbt test — makes the workflow raise, so one policy covers all five stages of
+every pipeline. It does not cover a workflow that never starts (for example, a Cloud Scheduler
+permission error), which only shows in the scheduler's own logs.
+
 ## Why GCP-Native Scheduling (not GitHub Actions)
 
 GitHub Actions is CI/CD tooling — it has a 6-hour job timeout, no native GCP service integration, and requires static credentials stored as secrets. Cloud Run Jobs + Cloud Scheduler are purpose-built for containerised, scheduled workloads:
