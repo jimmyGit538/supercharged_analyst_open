@@ -40,8 +40,7 @@ from pathlib import Path
 STRUCTURAL_PATTERNS = [
     "infra/terraform/*.tf",
     "infra/terraform/terraform.tfvars",
-    "infra/workflows/*.yaml",
-    "infra/workflows/*.yml",
+    "infra/terraform/templates/*",
     "01_extraction/*/main.py",
     "01_extraction/*/Dockerfile",
     "02_dbt/models/**/*.sql",

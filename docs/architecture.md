@@ -43,7 +43,7 @@ BigQuery: raw dataset
                                              Looker Studio
 ```
 
-Each data source runs its own Cloud Workflow that executes all 5 jobs in sequence. A Cloud Scheduler trigger fires the workflow on the configured cron schedule.
+Each data source runs its own Cloud Workflow that executes all 5 jobs in sequence. Every workflow is rendered from `infra/terraform/templates/pipeline_workflow.yaml` with the source key and frequency substituted, so a fix to the polling or error handling reaches every source on the next apply. A Cloud Scheduler trigger fires the workflow on the configured cron schedule.
 
 ## BigQuery Datasets
 

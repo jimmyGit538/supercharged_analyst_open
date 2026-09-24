@@ -162,14 +162,12 @@ used consistently across all of the following. If any mismatch is found, correct
   `<source>-dbt-warehouse-<cadence>`, `<source>-dbt-stg-marts-<cadence>`, `<source>-dbt-mart-<cadence>`
 - dbt model names: `stg_<source>__<entity>.sql`, `<source>_<name>.sql`, `fct_<name>.sql`
 - Terraform `sources` map key in `terraform.tfvars`
-- Workflow YAML: `infra/workflows/<source>_pipeline.yaml`
 
 **Remind `data-extractor`** of the 5-step CLAUDE.md checklist:
 1. Create `01_extraction/<source>/main.py`, `requirements.txt`, `Dockerfile`
-2. Create `infra/workflows/<source>_pipeline.yaml`
-3. Add one entry to `terraform.tfvars` in the `sources` map
-4. Run `terraform plan` then `terraform apply`
-5. Push Docker image via GitHub Actions CI
+2. Add one entry to `terraform.tfvars` in the `sources` map (the Cloud Workflow is rendered from a template)
+3. Run `terraform plan` then `terraform apply`
+4. Push Docker image via GitHub Actions CI
 
 ---
 
@@ -186,5 +184,5 @@ used consistently across all of the following. If any mismatch is found, correct
 | dbt warehouse | `<source>_<name>.sql` (table, schema: warehouses) |
 | dbt staging mart | `stg_<source>__<entity>.sql` (view, schema: staging) |
 | dbt mart | `fct_<name>.sql` / `dim_<name>.sql` (table, schema: marts) |
-| Workflow YAML | `infra/workflows/<source>_pipeline.yaml` |
+| Cloud Workflow | `<source>-pipeline`, rendered by Terraform — no file to write |
 | Terraform key | one entry in `terraform.tfvars` `sources` map |

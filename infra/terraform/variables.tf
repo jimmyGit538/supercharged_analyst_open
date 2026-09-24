@@ -38,5 +38,6 @@ variable "sources" {
     env_vars         = optional(map(string), {}) # Extra env vars for the extraction job
     secrets          = optional(map(string), {}) # Secret name → version (e.g. "TWELVEDATA_API_KEY" = "latest")
     timeout          = optional(string, "600s")  # Cloud Run Job timeout (default 10 min; use "3600s" for long extractors)
+    workflow_file    = optional(string)          # Hand-written workflow YAML, relative to infra/terraform/. Default: rendered from templates/pipeline_workflow.yaml
   }))
 }

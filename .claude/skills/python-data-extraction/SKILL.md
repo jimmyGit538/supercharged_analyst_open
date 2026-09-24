@@ -319,15 +319,16 @@ extractor) rather than loading rows that will be revised tomorrow.
 
 ## 8. Wiring the extractor into the pipeline
 
-Adding the extractor is one of six steps; the rest are configuration.
+Adding the extractor is one of five steps; the rest are configuration.
 
 1. `01_extraction/<source>/main.py`, `requirements.txt`, `Dockerfile`
 2. New variables in `.env.example`
-3. `infra/workflows/<source-key>_pipeline.yaml` (copy `open-meteo_pipeline.yaml`, replace the key)
-4. One entry in `terraform.tfvars` under `sources` — see `terraform.tfvars.example`
-5. A `raw` source entry in `02_dbt/models/1_staging_warehouses/_sources.yml`
+3. One entry in `terraform.tfvars` under `sources` — see `terraform.tfvars.example`.
+   The Cloud Workflow is rendered from `infra/terraform/templates/pipeline_workflow.yaml`;
+   there is no per-source YAML to write
+4. A `raw` source entry in `02_dbt/models/1_staging_warehouses/_sources.yml`
    with `loaded_at_field: extracted_at` and freshness thresholds (dbt modeler)
-6. `terraform plan` → `terraform apply` → merge → images pushed by CI
+5. `terraform plan` → `terraform apply` → merge → images pushed by CI
 
 Timeouts: the first run backfills full history. Set `timeout` in the
 `terraform.tfvars` entry accordingly (FRED uses `3600s`; the default `600s`
