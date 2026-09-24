@@ -14,6 +14,16 @@ variable "github_repo" {
   type        = string
 }
 
+variable "alert_email" {
+  description = <<-EOT
+    Email address that receives an alert when any source pipeline's Cloud
+    Workflow finishes with status FAILED (see monitoring.tf). Leave empty to
+    create no notification channel and no alert policy.
+  EOT
+  type        = string
+  default     = ""
+}
+
 variable "sources" {
   description = <<-EOT
     Map of data source pipelines. Each key is a source name (e.g. "indices").

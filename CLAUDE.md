@@ -34,6 +34,7 @@ infra/                                  # GCP infrastructure (Terraform + legacy
     sources.tf                          # Cloud Run Jobs + Cloud Scheduler (for_each)
     workflows.tf                        # Cloud Workflows, rendered per source from templates/pipeline_workflow.yaml
     iam.tf                              # 5 service accounts, IAM bindings, WIF
+    monitoring.tf                       # Email alert when any pipeline workflow fails (only if alert_email is set)
     bigquery.tf                         # BigQuery datasets
     artifact_registry.tf                # Docker image repository
     secrets.tf                          # Secret Manager validation
@@ -56,10 +57,14 @@ infra/                                  # GCP infrastructure (Terraform + legacy
 docs/                                   # Strategy documents and reference material
   architecture.md                       # Full strategy and architecture reference
   system_overview.svg                   # System architecture diagram
+tests/                                  # pytest unit tests for the extractors (no network, no BigQuery)
+  conftest.py                           # Loads 01_extraction/<source>/main.py by path; fake response and BigQuery fixtures
+  test_open_meteo.py                    # Reference tests for a keyless, one-request-per-entity extractor
+  test_fred_economic.py                 # Reference tests for a keyed, offset-paginated extractor
 scripts/                                # Utility shell scripts
   setup.sh                              # One-time environment/project setup script
-.github/workflows/                      # CI only: lint + docker build+push (NOT pipeline scheduling)
-  ci.yml                                # Lint, test, and Docker build+push on PR/push
+.github/workflows/                      # CI only: lint + test + docker build+push (NOT pipeline scheduling)
+  ci.yml                                # Lint, unit test extractors, and Docker build on PR
   deploy.yml                            # Deployment workflow
 ```
 
@@ -162,7 +167,7 @@ Terraform generates everything else per source from the `sources` map:
 | `workflow-runner` | Executes Cloud Workflows, invokes Cloud Run Jobs |
 | `scheduler-runner` | Triggers Cloud Workflows on schedule |
 
-**BigQuery dataset access** is managed by `infra/setup.sh` (legacy format). Terraform manages the datasets themselves but not the access entries, due to provider limitations with `google_bigquery_dataset_access` import.
+**BigQuery dataset access** is managed in `bigquery.tf` with `google_bigquery_dataset_iam_member` (additive, dataset-scoped). Never add an `access {}` block to the dataset resource — mixing the authoritative form with member bindings is unsupported.
 
 **Terraform state** is local. Before team collaboration or CI/CD for infrastructure, migrate to a GCS remote backend.
 

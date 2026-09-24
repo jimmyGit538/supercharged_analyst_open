@@ -75,7 +75,7 @@ gcloud logging read \
 |---|---|---|
 | `PermissionDenied` on Secret Manager | Secret exists but `extraction-runner` SA lacks `secretmanager.secretAccessor` | Check `iam.tf`, re-apply Terraform |
 | `Secret not found` | Secret not created in Secret Manager | Create via `gcloud secrets create` and add the value |
-| `403` on BigQuery write | `extraction-runner` SA lacks `bigquery.dataEditor` on `raw` dataset | Check dataset access in `infra/setup.sh` and re-run |
+| `403` on BigQuery write | `extraction-runner` SA lacks `bigquery.dataEditor` on `raw` dataset | `terraform plan` should show `google_bigquery_dataset_iam_member.access["extraction_writes_raw"]` in state; apply if missing |
 | IAM error immediately after `terraform apply` | IAM propagation delay (up to 60s) | Wait 60 seconds and retry |
 
 ---
@@ -149,3 +149,11 @@ gcloud workflows executions list ${SOURCE}-pipeline \
 ```
 
 A `SUCCEEDED` state confirms the full pipeline runs end-to-end without manual intervention.
+
+If `alert_email` is set in `terraform.tfvars`, a `FAILED` execution also sends an email within
+about five minutes. To prove the alert path once, the least invasive trigger is a dbt test
+failure: the workflow raises at that stage and the incident names the workflow in its
+`workflow_id` label. Confirm the policy exists with:
+```bash
+gcloud alpha monitoring policies list --project $PROJECT_ID \n  --filter='displayName="Data pipeline workflow failed"'
+```

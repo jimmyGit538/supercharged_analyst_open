@@ -347,7 +347,15 @@ This writes to `raw` in `BQ_PROJECT_EXTRACTION` with your personal
 credentials — the same table the deployed job uses. For a throwaway test,
 point `BQ_DATASET_EXTRACTION` at a scratch dataset that already exists.
 
-`ruff check 01_extraction/` must pass; CI runs it on every PR.
+`ruff check 01_extraction/ tests/` and `pytest tests/` must pass; CI runs both on every PR.
+
+Each extractor has a unit test file at `tests/test_<source>.py` that loads
+`main.py` by path (see `tests/conftest.py`) and patches `_request`,
+`requests.get`, `time.sleep` and the BigQuery helpers. The tests cover the
+logic that fails silently in production — sentinel handling, pagination
+termination, backoff, watermark start dates, per-entity failure isolation —
+and never touch the network. `tests/test_open_meteo.py` and
+`tests/test_fred_economic.py` are the reference files to copy.
 
 ---
 
@@ -361,5 +369,6 @@ point `BQ_DATASET_EXTRACTION` at a scratch dataset that already exists.
 - [ ] Empty run exits 0 with a log line
 - [ ] Every row has `extracted_at`
 - [ ] `.env.example` updated; no secrets, project ids or dataset names hardcoded
-- [ ] `ruff check 01_extraction/` clean
+- [ ] `ruff check 01_extraction/ tests/` clean
+- [ ] `tests/test_<source>.py` written from the closer reference test file; `pytest tests/` green
 - [ ] `api-<source>` skill written (see the `data-extractor` agent)
