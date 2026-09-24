@@ -75,7 +75,7 @@ gcloud logging read \
 |---|---|---|
 | `PermissionDenied` on Secret Manager | Secret exists but `extraction-runner` SA lacks `secretmanager.secretAccessor` | Check `iam.tf`, re-apply Terraform |
 | `Secret not found` | Secret not created in Secret Manager | Create via `gcloud secrets create` and add the value |
-| `403` on BigQuery write | `extraction-runner` SA lacks `bigquery.dataEditor` on `raw` dataset | Check dataset access in `infra/setup.sh` and re-run |
+| `403` on BigQuery write | `extraction-runner` SA lacks `bigquery.dataEditor` on `raw` dataset | `terraform plan` should show `google_bigquery_dataset_iam_member.access["extraction_writes_raw"]` in state; apply if missing |
 | IAM error immediately after `terraform apply` | IAM propagation delay (up to 60s) | Wait 60 seconds and retry |
 
 ---

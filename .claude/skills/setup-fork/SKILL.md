@@ -107,17 +107,7 @@ cd infra/terraform && terraform plan
 Show the user a summary of what will be created and **wait for approval** before
 `terraform apply`. This is the billable step.
 
-### 6. Dataset ACLs
-
-```bash
-export PROJECT_ID=... REGION=... GITHUB_REPO=...
-bash infra/setup.sh
-```
-
-Terraform creates the datasets but cannot manage dataset-level access. Skipping
-this is the classic silent failure: everything deploys, then jobs 403 at runtime.
-
-### 7. GitHub Actions configuration
+### 6. GitHub Actions configuration
 
 ```bash
 bash scripts/setup.sh --configure-github
@@ -127,7 +117,7 @@ Reads the terraform outputs and sets `WORKLOAD_IDENTITY_PROVIDER` and
 `SERVICE_ACCOUNT` (secrets) plus `GCP_PROJECT_ID` and `GCP_REGION` (variables).
 Requires `gh` authenticated with admin on the fork.
 
-### 8. Push images
+### 7. Push images
 
 Images reach Artifact Registry when the Deploy workflow runs on `main`. If the
 fork's `main` is already current, trigger it directly:
@@ -136,10 +126,10 @@ fork's `main` is already current, trigger it directly:
 gh workflow run deploy.yml && sleep 20 && gh run list --workflow=deploy.yml --limit 1
 ```
 
-If it reports success but skipped the push, step 7 did not take — check
+If it reports success but skipped the push, step 6 did not take — check
 `gh secret list` and `gh variable list`.
 
-### 9. Run and verify
+### 8. Run and verify
 
 ```bash
 gcloud workflows run open-meteo-pipeline --location="$REGION"
@@ -187,4 +177,4 @@ It is not part of this setup sequence. If the user asks for it separately:
 3. Uncomment the `fred-economic` block in `terraform.tfvars`, `terraform plan`, `terraform apply`
 4. `gcloud workflows run fred-economic-pipeline --location="$REGION"`, then verify
    `raw.fred_economic_observations` and `marts.fct_fred_economic_indicators` the
-   same way step 9 verifies Open-Meteo
+   same way step 8 verifies Open-Meteo

@@ -27,11 +27,53 @@ resource "google_bigquery_dataset" "datasets" {
 }
 
 # ── Dataset-level access ─────────────────────────────────────────────────────
-# Dataset access entries are managed by infra/setup.sh (legacy WRITER/READER
-# format). The google_bigquery_dataset_access resource does not support import,
-# so these remain outside Terraform management.
+# Least-privilege, dataset-scoped grants. The runner SAs get no project-level
+# BigQuery data roles — only jobUser (iam.tf) plus these bindings.
 #
-# Current access (configured by setup.sh):
-#   - extraction-runner: WRITER on raw
-#   - dbt-runner:        READER on raw
-#   - dbt-runner:        WRITER on stg_warehouses, warehouses, stg_marts, marts
+# google_bigquery_dataset_iam_member is additive: it adds one member to one
+# role and leaves every other entry alone, so it coexists with anything
+# infra/setup.sh granted in the legacy WRITER/READER format on an existing
+# project. Never add an `access {}` block to google_bigquery_dataset.datasets
+# above — mixing that authoritative form with these members is unsupported.
+
+locals {
+  dataset_access = {
+    extraction_writes_raw = {
+      dataset = "raw"
+      role    = "roles/bigquery.dataEditor"
+      member  = google_service_account.extraction_runner.email
+    }
+    dbt_reads_raw = {
+      dataset = "raw"
+      role    = "roles/bigquery.dataViewer"
+      member  = google_service_account.dbt_runner.email
+    }
+    dbt_writes_stg_warehouses = {
+      dataset = "stg_warehouses"
+      role    = "roles/bigquery.dataEditor"
+      member  = google_service_account.dbt_runner.email
+    }
+    dbt_writes_warehouses = {
+      dataset = "warehouses"
+      role    = "roles/bigquery.dataEditor"
+      member  = google_service_account.dbt_runner.email
+    }
+    dbt_writes_stg_marts = {
+      dataset = "stg_marts"
+      role    = "roles/bigquery.dataEditor"
+      member  = google_service_account.dbt_runner.email
+    }
+    dbt_writes_marts = {
+      dataset = "marts"
+      role    = "roles/bigquery.dataEditor"
+      member  = google_service_account.dbt_runner.email
+    }
+  }
+}
+
+resource "google_bigquery_dataset_iam_member" "access" {
+  for_each   = local.dataset_access
+  dataset_id = google_bigquery_dataset.datasets[each.value.dataset].dataset_id
+  role       = each.value.role
+  member     = "serviceAccount:${each.value.member}"
+}

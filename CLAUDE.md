@@ -171,7 +171,7 @@ Terraform auto-generates 5 Cloud Run Jobs per source from the `sources` map:
 | `workflow-runner` | Executes Cloud Workflows, invokes Cloud Run Jobs |
 | `scheduler-runner` | Triggers Cloud Workflows on schedule |
 
-**BigQuery dataset access** is managed by `infra/setup.sh` (legacy format). Terraform manages the datasets themselves but not the access entries, due to provider limitations with `google_bigquery_dataset_access` import.
+**BigQuery dataset access** is managed in `bigquery.tf` with `google_bigquery_dataset_iam_member` (additive, dataset-scoped). Never add an `access {}` block to the dataset resource — mixing the authoritative form with member bindings is unsupported.
 
 **Terraform state** is local. Before team collaboration or CI/CD for infrastructure, migrate to a GCS remote backend.
 

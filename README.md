@@ -98,34 +98,16 @@ This creates:
 - Workload Identity Federation pool for GitHub Actions (no static keys)
 - BigQuery datasets: `raw`, `stg_warehouses`, `warehouses`, `stg_marts`, `marts`, `agent_registry`
 - Artifact Registry repository for Docker images
+- Dataset-level access: `extraction-runner` can write `raw`; `dbt-runner` can read `raw` and write
+  the four dbt datasets. Nothing else in the project gets BigQuery data access.
 - A Cloud Monitoring alert that emails `alert_email` whenever a pipeline workflow fails
   (skipped if you left it empty). Google emails that address once to confirm the
   notification channel — accept it, or alerts go nowhere.
 
-### 6a. Grant BigQuery dataset access
-
-**Do not skip this step.** Terraform creates the datasets and the service accounts, but it
-does *not* grant dataset-level access — the `google_bigquery_dataset_access` resource has
-no usable import path, so those entries are owned by `infra/setup.sh` instead (see the
-comment block in `infra/terraform/bigquery.tf`).
-
-```bash
-cd ../..                              # back to the repo root
-export PROJECT_ID="your-gcp-project-id"
-export REGION="us-central1"
-export GITHUB_REPO="your-org/your-repo"
-bash infra/setup.sh
-```
-
-This grants `extraction-runner` WRITER on `raw`, and `dbt-runner` READER on `raw` plus
-WRITER on `stg_warehouses`, `warehouses`, `stg_marts`, and `marts`.
-
-Without it, everything deploys cleanly and then fails at *runtime*: extraction jobs return
-a BigQuery 403 on their first write, and dbt jobs fail to read `raw`. Verify with:
-
-```bash
-bq show --format=prettyjson "${PROJECT_ID}:raw" | grep -A2 extraction-runner
-```
+> **Upgrading an existing fork?** Dataset access used to be granted by `infra/setup.sh` in the
+> legacy `WRITER`/`READER` format. The Terraform bindings are additive, so `terraform apply` adds
+> them alongside the old entries and nothing breaks. Remove the old entries afterwards if you want
+> a clean ACL: `bq show --format=prettyjson $PROJECT_ID:raw` lists them.
 
 ### 7. Set up the Agent Registry (optional but recommended)
 
