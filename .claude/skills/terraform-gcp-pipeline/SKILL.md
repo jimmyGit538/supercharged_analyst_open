@@ -161,8 +161,8 @@ Five specialized service accounts with least-privilege roles, plus Workload Iden
 
 | Service Account | Purpose | Key Roles |
 |---|---|---|
-| `extraction-runner` | Runs extraction Cloud Run Jobs | `bigquery.jobUser`, WRITER on `raw` dataset |
-| `dbt-runner` | Runs dbt Cloud Run Jobs | `bigquery.jobUser`, READER on `raw`, WRITER on `staging`/`warehouses`/`marts` |
+| `extraction-runner` | Runs extraction Cloud Run Jobs | `bigquery.jobUser`; `bigquery.dataEditor` on `raw` (dataset-level, `bigquery.tf`) |
+| `dbt-runner` | Runs dbt Cloud Run Jobs | `bigquery.jobUser`; `bigquery.dataViewer` on `raw`, `bigquery.dataEditor` on `stg_warehouses`/`warehouses`/`stg_marts`/`marts` |
 | `github-actions-ci` | Pushes Docker images from GitHub Actions | `artifactregistry.writer` (via WIF, no keys) |
 | `workflow-runner` | Executes Cloud Workflows | `run.invoker`, `run.viewer` |
 | `scheduler-runner` | Triggers workflows on schedule | `workflows.invoker` |

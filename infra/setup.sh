@@ -121,9 +121,8 @@ gcloud iam service-accounts add-iam-policy-binding "$CI_SA" \
   --member="principalSet://iam.googleapis.com/${WIF_POOL_NAME}/attribute.repository/${GITHUB_REPO}"
 
 # ── Dataset access helper ──────────────────────────────────────────────────────
-# Terraform cannot manage google_bigquery_dataset_access (the resource has no
-# usable import path), so dataset-level ACLs are applied here — see the comment
-# block in infra/terraform/bigquery.tf.
+# LEGACY: dataset access is now managed by google_bigquery_dataset_iam_member in
+# infra/terraform/bigquery.tf. This helper is retained for reference only.
 #
 # `bq add-iam-policy-binding` requires allowlisting, so the ACL is edited by
 # reading the dataset resource, patching it, and writing it back. The patch MUST
