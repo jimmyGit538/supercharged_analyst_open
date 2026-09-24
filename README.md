@@ -80,7 +80,7 @@ gcloud services enable \
 ```bash
 cd infra/terraform
 cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars — set project_id, region, github_repo
+# Edit terraform.tfvars — set project_id, region, github_repo, alert_email
 # open-meteo is active by default and needs no secret. fred-economic ships commented
 # out — leave it that way until you've created its FRED_API_KEY secret (step 9a).
 ```
@@ -98,6 +98,9 @@ This creates:
 - Workload Identity Federation pool for GitHub Actions (no static keys)
 - BigQuery datasets: `raw`, `stg_warehouses`, `warehouses`, `stg_marts`, `marts`, `agent_registry`
 - Artifact Registry repository for Docker images
+- A Cloud Monitoring alert that emails `alert_email` whenever a pipeline workflow fails
+  (skipped if you left it empty). Google emails that address once to confirm the
+  notification channel — accept it, or alerts go nowhere.
 
 ### 6a. Grant BigQuery dataset access
 

@@ -34,6 +34,7 @@ infra/                                  # GCP infrastructure (Terraform + legacy
     sources.tf                          # Cloud Run Jobs + Cloud Scheduler (for_each)
     workflows.tf                        # Cloud Workflows (references YAML via file())
     iam.tf                              # 5 service accounts, IAM bindings, WIF
+    monitoring.tf                       # Email alert when any pipeline workflow fails (only if alert_email is set)
     bigquery.tf                         # BigQuery datasets
     artifact_registry.tf                # Docker image repository
     secrets.tf                          # Secret Manager validation

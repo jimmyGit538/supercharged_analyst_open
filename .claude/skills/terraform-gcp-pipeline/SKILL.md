@@ -377,6 +377,11 @@ output "extractor_service_account" {
 - **Per-source Docker images**: Each source has its own image at `data-extractors/<source_name>:<tag>`. Independent versioning enables per-source rollouts and rollbacks.
 - **Secrets via Secret Manager**: Credentials belong in Secret Manager, not in env vars or tfvars. The IAM config grants the extractor service account `secretmanager.secretAccessor`.
 - **Workflow generation is optional**: The inline `yamlencode` approach works for simple sequential pipelines. For complex orchestration (parallel steps, conditionals, error handlers), use a separate YAML template with `templatefile()`.
+- **Failure alerting is one policy, not one per job**: `monitoring.tf` alerts on
+  `workflows.googleapis.com/finished_execution_count` with `status = FAILED`, scoped to the
+  workflows in `var.sources`. Because every failed Cloud Run Job makes its workflow raise, this
+  covers all five stages of every pipeline. Both the policy and the email channel are `count`-gated
+  on `var.alert_email` so an unconfigured fork creates nothing.
 - **Local state for now**: Terraform state is local. Before team collaboration or CI/CD, migrate to a GCS backend:
   ```hcl
   terraform {
@@ -394,5 +399,4 @@ output "extractor_service_account" {
 - Remote state backend (GCS bucket) for team safety and CI/CD
 - Watermark persistence (BigQuery table or GCS bucket, provisioned by Terraform, managed by app code)
 - CI/CD pipeline (Cloud Build trigger → detect changed sources → build affected images → update image_tag per source in tfvars → terraform apply)
-- Monitoring/alerting (Cloud Monitoring alert policies per job, also Terraform-managed)
 - Environment separation (dev/staging/prod via Terraform workspaces or separate tfvars files)
