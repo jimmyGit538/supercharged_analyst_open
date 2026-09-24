@@ -121,7 +121,9 @@ skill as part of the job (step 6 below).
      Manager before `terraform apply`
    - the `terraform.tfvars` entry to add (`extraction_image`, `frequency`,
      `schedule`, `env_vars`, `secrets`, `timeout` — the first run is a full
-     backfill, so size the timeout for it)
+     backfill, so size the timeout for it). The map key names the Cloud Run
+     Jobs and must be hyphenated (`fred-economic`); `extraction_image` is the
+     directory name and keeps its underscores (`fred_economic`)
    - how to run it locally, and any assumptions the user should review
 
 ## Constraints
