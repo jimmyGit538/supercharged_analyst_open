@@ -143,9 +143,8 @@ Scope it to the changed files while iterating:
 sqlfluff lint 02_dbt/models/1_staging_warehouses/ --dialect bigquery
 ```
 
-`.pre-commit-config.yaml` pins sqlfluff to 3.4.0. CI installs it unpinned, so a
-newer release can fail CI on rules that pass locally; match the pinned version
-when the two disagree. For violation-by-violation fixes (LT01, RF04, LT05, AL01,
+`.pre-commit-config.yaml` and CI both pin sqlfluff to 3.4.0, so a local run with
+that version matches CI; if yours differs, match the pin. For violation-by-violation fixes (LT01, RF04, LT05, AL01,
 ST06), load the `ci-debugging` skill rather than duplicating its tables here.
 
 ### Parse and compile
@@ -348,7 +347,7 @@ empty. Any line in it is a bug.
 | `Unable to do partial parsing` | Profile, vars, or target changed | Informational, not an error. Ignore, or `rm -rf 02_dbt/target/` for a clean parse |
 | Test fails only on the real build | Genuine data quality issue | Inspect the data before touching the test. Weaken severity only with a documented reason |
 | Model builds, mart returns 0 rows | A `WHERE` or `JOIN` filters everything | Run the compiled SQL directly in BigQuery and bisect the predicates |
-| Lint passes locally, fails in CI | Version skew | `.pre-commit-config.yaml` pins `sqlfluff==3.4.0`; CI installs unpinned. Match the pin |
+| Lint passes locally, fails in CI | Version skew | CI and `.pre-commit-config.yaml` both pin `sqlfluff==3.4.0`. Match the pin locally, and bump both together |
 
 ---
 

@@ -20,7 +20,7 @@ keeps one row per (series_id, date) by latest extracted_at.
 
 import os
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import requests
 from dotenv import load_dotenv
@@ -258,7 +258,7 @@ def main() -> None:
     ensure_table(client)
     watermarks = load_watermarks(client)
 
-    extracted_at = datetime.now(timezone.utc).isoformat()
+    extracted_at = datetime.now(UTC).isoformat()
     pending: list[dict] = []
     total_rows = 0
     empty_series: list[str] = []

@@ -16,8 +16,12 @@ jobs:
         with:
           python-version: '3.11'
 
+      # Pinned to the same versions as .pre-commit-config.yaml so CI and local
+      # hooks apply the same rules. Unpinned, a new linter release can change
+      # its default rule set and fail every PR on code nobody touched. Bump
+      # these together with the pre-commit revs.
       - name: Install linters
-        run: pip install ruff sqlfluff
+        run: pip install ruff==0.9.9 sqlfluff==3.4.0
 
       - name: Lint Python
         run: ruff check 01_extraction/ tests/

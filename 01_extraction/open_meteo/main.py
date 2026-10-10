@@ -24,7 +24,7 @@ latest extracted_at.
 
 import os
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import requests
 from dotenv import load_dotenv
@@ -96,7 +96,7 @@ def table_id() -> str:
 
 
 def archive_end_date() -> str:
-    return (datetime.now(timezone.utc) - timedelta(days=ARCHIVE_LAG_DAYS)).strftime("%Y-%m-%d")
+    return (datetime.now(UTC) - timedelta(days=ARCHIVE_LAG_DAYS)).strftime("%Y-%m-%d")
 
 
 # ── Extraction ───────────────────────────────────────────────────────────────────
@@ -232,7 +232,7 @@ def main() -> None:
     watermarks = load_watermarks(client)
 
     end_date = archive_end_date()
-    extracted_at = datetime.now(timezone.utc).isoformat()
+    extracted_at = datetime.now(UTC).isoformat()
     pending: list[dict] = []
     total_rows = 0
     empty_locations: list[str] = []
