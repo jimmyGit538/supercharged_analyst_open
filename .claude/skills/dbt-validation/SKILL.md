@@ -213,17 +213,113 @@ dbt build --select <selector> --empty --target dev \
 A seed loaded this way is real data, not an empty relation, which is what lets
 the `relationships` tests on seeded dimensions resolve at all.
 
+### `--empty` leaves the sandbox empty, and Tier 3 will read it
+
+`--empty` is not a dry run in the sense of "nothing persists". It really creates
+every selected relation in `dbt_dev_*`, with each `ref()` and `source()`
+rendered as `(select * from ... where false limit 0)`:
+
+- **Views stay empty for good.** The stored view definition contains that
+  wrapper, so the view returns 0 rows until it is rebuilt without `--empty` —
+  in this session or any later one.
+- **Incremental tables stay empty for good.** Their filter is built on
+  `max(date)` from `{{ this }}`, including trailing-window forms such as
+  `date_sub(max(existing.date), interval 90 day)`. On an empty table `max()` is
+  NULL, the filter is false, and every later incremental run merges 0 rows.
+  Only `--full-refresh` repopulates them.
+
+The danger is the next step. A Tier 3 build that selects only the changed
+models reads whatever sits upstream in `dbt_dev_*`. If that is a view left
+empty by any earlier `--empty` run, every changed model builds from nothing,
+and every test passes, because a test that looks for bad rows finds none in an
+empty table. The only sign is `MERGE (0.0 rows, 0 processed)` or
+`CREATE VIEW (0 processed)` in the log.
+
+This is not hypothetical. In a deployment of this template, validating a change
+to a warehouse returns model once passed every test, about 90 of them, on a
+table with 0 rows. An earlier session had left the staging view upstream of it
+as `where false limit 0`. Step 4 is set up to prevent this. Do not shorten its
+selector.
+
 ---
 
 ## Step 4 — Tier 3: real build
 
+Select the changed models **with everything upstream of them**, not just what
+the Tier 2 selector covered:
+
 ```bash
-dbt build --select <selector> --target dev --project-dir 02_dbt
+dbt build --select +<changed>+ --target dev --project-dir 02_dbt
 ```
+
+The leading `+` rebuilds every upstream view from `raw` for real. That overwrites
+any `where false limit 0` definition left by Tier 2 or by an earlier session, so
+the changed models read real data. Upstream staging models are views and cost
+almost nothing to recreate, and the warehouse tables upstream are bounded by the
+1 GB `dev` cap. For several changed models, list each one:
+`--select +model_a+ +model_b+`.
 
 `dbt build` interleaves `run`, `test`, and `seed` in DAG order, so a model whose
 tests fail blocks its children instead of propagating bad data downstream.
 Prefer it over a bare `dbt run` followed by `dbt test`.
+
+**Incremental models created by `--empty` need `--full-refresh`.** The leading
+`+` cannot fix them: an incremental run on an empty table merges 0 rows (see
+Step 3). If the log shows `MERGE (0.0 rows, 0 processed)` for a model that should
+have data, it needs `--full-refresh`. Ask the user before running it, per
+Constraints. Scope it to the sandbox and to that model and its children:
+`dbt build --full-refresh --select <model>+ --target dev --project-dir 02_dbt`.
+
+**When a build stops on test failures that already exist,** dbt skips everything
+downstream, and excluding failing tests one by one rarely ends: one upstream
+data bug usually fails a similar test in every layer. Build the models, then
+test them all, so every failure shows up in one pass:
+
+```bash
+dbt run  --select +<changed>+ --target dev --project-dir 02_dbt
+dbt test --select +<changed>+ --target dev --project-dir 02_dbt
+```
+
+Then run each failing test's query against production. A failure with a similar
+count in prod existed before your change: report it, don't fix it in this PR. A
+failure only in dev is yours.
+
+### Prove the build read real data
+
+A green Tier 3 build does not show that any rows were built (see Step 3). After it
+runs, check both kinds of empty relation.
+
+Views still compiled with the `--empty` wrapper, in both staging datasets:
+
+```bash
+for ds in dbt_dev_stg_warehouses dbt_dev_stg_marts; do
+  bq query --use_legacy_sql=false --format=pretty "
+    select table_schema, table_name
+    from \`$BQ_PROJECT.$ds.INFORMATION_SCHEMA.VIEWS\`
+    where regexp_contains(view_definition, r'where false\s+limit 0')"
+done
+```
+
+Empty tables:
+
+```bash
+for ds in dbt_dev_warehouses dbt_dev_marts; do
+  bq query --use_legacy_sql=false --format=pretty "
+    select dataset_id, table_id, row_count
+    from \`$BQ_PROJECT.$ds.__TABLES__\`
+    where row_count = 0"
+done
+```
+
+Query each dataset separately. Region-level `INFORMATION_SCHEMA` needs
+project-wide `bigquery.tables.list`, which a developer account may not have;
+the dataset-level views do not. Neither query reads table data, so neither bills
+meaningfully.
+
+Results that belong to other pipelines are left over from earlier sessions.
+They don't matter unless a model in your `+<changed>+` selection reads them.
+Any changed model, or anything upstream of one, that appears in either result
+means Tier 3 did not validate it: rebuild it, then rerun the check.
 
 ### What `--target dev` isolates, and how to confirm it
 
@@ -348,6 +444,8 @@ empty. Any line in it is a bug.
 | `Unable to do partial parsing` | Profile, vars, or target changed | Informational, not an error. Ignore, or `rm -rf 02_dbt/target/` for a clean parse |
 | Test fails only on the real build | Genuine data quality issue | Inspect the data before touching the test. Weaken severity only with a documented reason |
 | Model builds, mart returns 0 rows | A `WHERE` or `JOIN` filters everything | Run the compiled SQL directly in BigQuery and bisect the predicates |
+| Real build is green but logs `MERGE (0.0 rows, 0 processed)` / changed tables have 0 rows | An upstream `dbt_dev_*` view still holds an earlier `--empty` build's `where false limit 0`, or an incremental table was first created by `--empty` | Rebuild with `--select +<changed>+`; `--full-refresh` the incremental models (with approval). Then run the checks in Step 4 → *Prove the build read real data* |
+| A known failing test blocks the build, and excluding it surfaces the same failure one layer down | One upstream data bug fails a similar test in every layer | `dbt run` then `dbt test` the selection, and compare each failure's count with prod (Step 4) |
 | Lint passes locally, fails in CI | Version skew | `.pre-commit-config.yaml` pins `sqlfluff==3.4.0`; CI installs unpinned. Match the pin |
 
 ---
@@ -360,10 +458,15 @@ Before opening a PR touching `02_dbt/`:
 - [ ] `dbt parse --warn-error` clean
 - [ ] Every schema in the manifest starts with `dbt_dev_` (Step 4)
 - [ ] `dbt build --select <changed>+ --empty --target dev` passes
-- [ ] `dbt build --select <changed>+ --target dev` passes with tests
+- [ ] `dbt build --select +<changed>+ --target dev` passes with tests, with
+      upstream included so no relation left empty by `--empty` is read
+- [ ] No changed model or upstream relation appears in the empty-view or
+      empty-table checks (Step 4 → *Prove the build read real data*)
 - [ ] Every new or changed column has a description and at least one test
 - [ ] Model and test counts reconcile against `main` (Step 5), for a refactor
 - [ ] Row counts on affected marts are non-zero and plausible
+- [ ] Every test failure is either fixed or shown to exist in prod already
+      with a similar count, and reported as such
 
 Report what actually ran. A tier that was skipped — because dbt could not
 authenticate, or the build was too expensive — must be stated as skipped, not
